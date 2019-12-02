@@ -22,18 +22,18 @@ curl_client = ["isahc"]
 wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures"]
 
 [dependencies]
-futures-preview = { version = "0.3.0-alpha.19", features = ["compat"] }
+futures = { version = "0.3.1", features = ["compat", "io-compat"] }
 http = "0.1.19"
 
 # isahc-client
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-isahc = { version = "0.7", optional = true, default-features = false, features = ["http2"]  }
+isahc = { version = "0.8", optional = true, default-features = false, features = ["http2"]  }
 
 # wasm-client
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = { version = "0.3.25", optional = true }
 wasm-bindgen = { version = "0.2.48", optional = true }
-wasm-bindgen-futures = { version = "0.3.25", features = ["futures_0_3"], optional = true }
+wasm-bindgen-futures = { version = "0.4.5", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
 version = "0.3.25"
