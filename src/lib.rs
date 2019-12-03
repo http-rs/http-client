@@ -9,7 +9,10 @@
 #![warn(missing_docs, missing_doc_code_examples, unreachable_pub)]
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
 // Forbid `unsafe` for the native & curl features, but allow it (for now) under the WASM backend
-#![cfg_attr(not(all(feature = "wasm_client", target_arch = "wasm32")), forbid(unsafe_code))]
+#![cfg_attr(
+    not(all(feature = "wasm_client", target_arch = "wasm32")),
+    forbid(unsafe_code)
+)]
 
 use futures::future::BoxFuture;
 use futures::io::{AsyncRead, Cursor};
