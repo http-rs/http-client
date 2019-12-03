@@ -4,10 +4,12 @@
 //! The purpose of this crate is to provide a unified interface for multiple HTTP client backends,
 //! so that they can be abstracted over without doing extra work.
 
-#![forbid(unsafe_code, future_incompatible, rust_2018_idioms)]
+#![forbid(future_incompatible, rust_2018_idioms)]
 #![deny(missing_debug_implementations, nonstandard_style)]
 #![warn(missing_docs, missing_doc_code_examples, unreachable_pub)]
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
+// Forbid `unsafe` for the native & curl features, but allow it (for now) under the WASM backend
+#![cfg_attr(not(all(feature = "wasm_client", target_arch = "wasm32")), forbid(unsafe_code))]
 
 use futures::future::BoxFuture;
 use futures::io::{AsyncRead, Cursor};
