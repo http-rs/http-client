@@ -76,7 +76,7 @@ impl Future for InnerFuture {
 mod fetch {
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
     use wasm_bindgen::JsCast;
-    use wasm_bindgen_futures::futures_0_3::JsFuture;
+    use wasm_bindgen_futures::JsFuture;
     use web_sys::window;
     use web_sys::RequestInit;
 
