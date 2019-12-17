@@ -53,7 +53,7 @@ $ cargo add http-client
 
 ## Safety
 
-This crate uses ``#![deny(unsafe_code)]`` to ensure everything is implemented in
+For non-wasm clients, this crate uses ``#![deny(unsafe_code)]`` to ensure everything is implemented in
 100% Safe Rust.
 
 ## Contributing
