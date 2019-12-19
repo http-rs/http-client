@@ -116,7 +116,7 @@ mod fetch {
             debug_assert!(resp.is_instance_of::<web_sys::Response>());
             let res: web_sys::Response = resp.dyn_into().unwrap();
 
-            // Get the request body.
+            // Get the response body.
             let promise = res.array_buffer().unwrap();
             let resp = JsFuture::from(promise).await.unwrap();
             debug_assert!(resp.is_instance_of::<js_sys::ArrayBuffer>());
