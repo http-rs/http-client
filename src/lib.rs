@@ -70,6 +70,10 @@ pub trait HttpClient: Debug + Unpin + Send + Sync + Clone + 'static {
 /// like `Vec<u8>` or `String`, using the `From` trait.
 pub struct Body {
     reader: Box<dyn AsyncRead + Unpin + Send + 'static>,
+    /// Intentionally use `u64` over `usize` here.
+    /// `usize` won't work if you try to send 10GB file from 32bit host.
+    #[allow(dead_code)] // not all backends make use of this
+    len: Option<u64>,
 }
 
 impl Body {
@@ -77,6 +81,7 @@ impl Body {
     pub fn empty() -> Self {
         Self {
             reader: Box::new(futures::io::empty()),
+            len: Some(0),
         }
     }
 
@@ -84,6 +89,7 @@ impl Body {
     pub fn from_reader(reader: impl AsyncRead + Unpin + Send + 'static) -> Self {
         Self {
             reader: Box::new(reader),
+            len: None,
         }
     }
 }
@@ -110,8 +116,10 @@ impl From<Vec<u8>> for Body {
     #[allow(missing_doc_code_examples)]
     #[inline]
     fn from(vec: Vec<u8>) -> Body {
+        let len = vec.len() as u64;
         Self {
             reader: Box::new(Cursor::new(vec)),
+            len: Some(len),
         }
     }
 }
@@ -120,6 +128,6 @@ impl<R: AsyncRead + Unpin + Send + 'static> From<Box<R>> for Body {
     /// Converts an `AsyncRead` into a Body.
     #[allow(missing_doc_code_examples)]
     fn from(reader: Box<R>) -> Self {
-        Self { reader }
+        Self { reader, len: None }
     }
 }
