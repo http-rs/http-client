@@ -15,13 +15,6 @@
 )]
 
 use futures::future::BoxFuture;
-use futures::io::{AsyncRead, Cursor};
-
-use std::error::Error;
-use std::fmt::{self, Debug};
-use std::io;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
 #[cfg_attr(feature = "docs", doc(cfg(curl_client)))]
 #[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
@@ -35,11 +28,15 @@ pub mod wasm;
 #[cfg(feature = "native_client")]
 pub mod native;
 
+#[cfg_attr(feature = "docs", doc(cfg(h1_client)))]
+#[cfg(feature = "h1_client")]
+pub mod h1;
+
 /// An HTTP Request type with a streaming body.
-pub type Request = http::Request<Body>;
+pub type Request = http_types::Request;
 
 /// An HTTP Response type with a streaming body.
-pub type Response = http::Response<Body>;
+pub type Response = http_types::Response;
 
 /// An abstract HTTP client.
 ///
@@ -55,90 +52,16 @@ pub type Response = http::Response<Body>;
 ///
 /// How `Clone` is implemented is up to the implementors, but in an ideal scenario combining this
 /// with the `Client` builder will allow for high connection reuse, improving latency.
-pub trait HttpClient: Debug + Unpin + Send + Sync + Clone + 'static {
+pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + Clone + 'static {
     /// The associated error type.
-    type Error: Error + Send + Sync;
+    type Error: Send + Sync + Into<Error>;
 
     /// Perform a request.
     fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>>;
 }
 
 /// The raw body of an http request or response.
-///
-/// A body is a stream of `Bytes` values, which are shared handles to byte buffers.
-/// Both `Body` and `Bytes` values can be easily created from standard owned byte buffer types
-/// like `Vec<u8>` or `String`, using the `From` trait.
-pub struct Body {
-    reader: Option<Box<dyn AsyncRead + Unpin + Send + 'static>>,
-    /// Intentionally use `u64` over `usize` here.
-    /// `usize` won't work if you try to send 10GB file from 32bit host.
-    #[allow(dead_code)] // not all backends make use of this
-    len: Option<u64>,
-}
+pub type Body = http_types::Body;
 
-impl Body {
-    /// Create a new empty body.
-    pub fn empty() -> Self {
-        Self {
-            reader: None,
-            len: Some(0),
-        }
-    }
-
-    /// Create a new instance from a reader.
-    pub fn from_reader(reader: impl AsyncRead + Unpin + Send + 'static) -> Self {
-        Self {
-            reader: Some(Box::new(reader)),
-            len: None,
-        }
-    }
-
-    /// Validate that the body was created with `Body::empty()`.
-    pub fn is_empty(&self) -> bool {
-        self.reader.is_none()
-    }
-}
-
-impl AsyncRead for Body {
-    #[allow(missing_doc_code_examples)]
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
-        match self.reader.as_mut() {
-            Some(reader) => Pin::new(reader).poll_read(cx, buf),
-            None => Poll::Ready(Ok(0)),
-        }
-    }
-}
-
-impl fmt::Debug for Body {
-    #[allow(missing_doc_code_examples)]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Body").field("reader", &"<hidden>").finish()
-    }
-}
-
-impl From<Vec<u8>> for Body {
-    #[allow(missing_doc_code_examples)]
-    #[inline]
-    fn from(vec: Vec<u8>) -> Body {
-        let len = vec.len() as u64;
-        Self {
-            reader: Some(Box::new(Cursor::new(vec))),
-            len: Some(len),
-        }
-    }
-}
-
-impl<R: AsyncRead + Unpin + Send + 'static> From<Box<R>> for Body {
-    /// Converts an `AsyncRead` into a Body.
-    #[allow(missing_doc_code_examples)]
-    fn from(reader: Box<R>) -> Self {
-        Self {
-            reader: Some(reader),
-            len: None,
-        }
-    }
-}
+/// Error type.
+pub type Error = http_types::Error;

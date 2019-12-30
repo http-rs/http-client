@@ -3,6 +3,7 @@
 use super::{Body, HttpClient, Request, Response};
 
 use futures::future::BoxFuture;
+use isahc::http;
 
 use std::sync::Arc;
 
@@ -46,25 +47,24 @@ impl HttpClient for IsahcClient {
     fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
         let client = self.client.clone();
         Box::pin(async move {
-            let (parts, body) = req.into_parts();
-
-            let body = if body.is_empty() {
-                isahc::Body::empty()
-            } else {
-                match body.len {
-                    Some(len) => isahc::Body::reader_sized(body, len),
-                    None => isahc::Body::reader(body),
-                }
+            let req_hyperium: http::Request<http_types::Body> = req.into();
+            let (parts, body) = req_hyperium.into_parts();
+            let body = match body.len() {
+                Some(len) => isahc::Body::from_reader_sized(body, len as u64),
+                None => isahc::Body::from_reader(body),
             };
-
             let req: http::Request<isahc::Body> = http::Request::from_parts(parts, body);
 
             let res = client.send_async(req).await?;
 
             let (parts, body) = res.into_parts();
-            let body = Body::from_reader(body);
-            let res = http::Response::from_parts(parts, body);
-            Ok(res)
+
+            // FIXME: isahc::Body is !Sync, making it impossible to pass to http::Response
+            unimplemented!();
+
+            // let body = Body::from_reader(body, body.len().map(|len| len as usize));
+            // let res = http::Response::from_parts(parts, body);
+            // Ok(res.into())
         })
     }
 }
