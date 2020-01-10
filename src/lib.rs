@@ -55,7 +55,7 @@ pub type Response = http::Response<Body>;
 ///
 /// How `Clone` is implemented is up to the implementors, but in an ideal scenario combining this
 /// with the `Client` builder will allow for high connection reuse, improving latency.
-pub trait HttpClient: Debug + Unpin + Send + Sync + Clone + 'static {
+pub trait HttpClient: Debug + Unpin + Send + Sync + Clone + 'static + Sized {
     /// The associated error type.
     type Error: Error + Send + Sync;
 
