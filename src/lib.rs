@@ -69,7 +69,7 @@ pub trait HttpClient: Debug + Unpin + Send + Sync + Clone + 'static {
 /// Both `Body` and `Bytes` values can be easily created from standard owned byte buffer types
 /// like `Vec<u8>` or `String`, using the `From` trait.
 pub struct Body {
-    reader: Box<dyn AsyncRead + Unpin + Send + 'static>,
+    reader: Box<dyn AsyncRead + Unpin + Send + Sync + 'static>,
     /// Intentionally use `u64` over `usize` here.
     /// `usize` won't work if you try to send 10GB file from 32bit host.
     #[allow(dead_code)] // not all backends make use of this
@@ -86,7 +86,7 @@ impl Body {
     }
 
     /// Create a new instance from a reader.
-    pub fn from_reader(reader: impl AsyncRead + Unpin + Send + 'static) -> Self {
+    pub fn from_reader(reader: impl AsyncRead + Unpin + Send + Sync + 'static) -> Self {
         Self {
             reader: Box::new(reader),
             len: None,
@@ -124,7 +124,7 @@ impl From<Vec<u8>> for Body {
     }
 }
 
-impl<R: AsyncRead + Unpin + Send + 'static> From<Box<R>> for Body {
+impl<R: AsyncRead + Unpin + Send + Sync + 'static> From<Box<R>> for Body {
     /// Converts an `AsyncRead` into a Body.
     #[allow(missing_doc_code_examples)]
     fn from(reader: Box<R>) -> Self {
