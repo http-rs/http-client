@@ -28,13 +28,19 @@ impl Clone for WasmClient {
     }
 }
 
+//let mut buf = Vec::with_capacity(1024); body.read_to_end(&mut buf).await?;
+
+//self.init
+//.body(Some(JsValue::from_str(std::str::from_utf8(&buf).unwrap())));
+
+//Ok(())
+
 impl HttpClient for WasmClient {
     type Error = std::io::Error;
 
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
+    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
         let fut = Box::pin(async move {
-            let url = format!("{}", req.uri());
-            let req = fetch::new(req.method().as_str(), &url);
+            let req = fetch::new(req);
             let mut res = req.send().await?;
 
             let body = res.body_bytes();
@@ -74,8 +80,13 @@ impl Future for InnerFuture {
 }
 
 mod fetch {
+    use super::Body;
+    use futures_util::io::AsyncReadExt;
+    use http::request::Parts;
+    use http::HeaderMap;
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
     use wasm_bindgen::JsCast;
+    use wasm_bindgen::JsValue;
     use wasm_bindgen_futures::JsFuture;
     use web_sys::window;
     use web_sys::RequestInit;
@@ -84,8 +95,18 @@ mod fetch {
     use std::iter::{IntoIterator, Iterator};
 
     /// Create a new fetch request.
-    pub(crate) fn new(method: impl AsRef<str>, url: impl AsRef<str>) -> Request {
-        Request::new(method, url)
+    pub(crate) fn new(mut req: super::Request) -> Request {
+        let url = format!("{}", req.uri());
+        let (
+            Parts {
+                method,
+                uri,
+                headers,
+                ..
+            },
+            body,
+        ) = req.into_parts();
+        Request::new(method, format!("{}", uri), headers, body)
     }
 
     /// An HTTP Fetch Request.
@@ -96,9 +117,37 @@ mod fetch {
 
     impl Request {
         /// Create a new instance.
-        pub(crate) fn new(method: impl AsRef<str>, url: impl AsRef<str>) -> Self {
+        pub(crate) fn new(
+            method: impl AsRef<str>,
+            url: impl AsRef<str>,
+            headers: HeaderMap,
+            mut body: Body,
+        ) -> Self {
             let mut init = web_sys::RequestInit::new();
             init.method(method.as_ref());
+
+            let init_headers = web_sys::Headers::new().unwrap();
+            for (name, value) in headers.iter() {
+                init_headers.append(name.as_str(), value.to_str().unwrap());
+            }
+            init.headers(&init_headers);
+
+            let mut body_buf = Vec::with_capacity(1024);
+            futures::executor::block_on(body.read_to_end(&mut body_buf));
+
+            if body_buf.len() > 0 {
+                let array = js_sys::Array::new();
+                for byte in body_buf.iter() {
+                    array.push(&JsValue::from_f64(f64::from(*byte)));
+                }
+                let uint_8_array = js_sys::Uint8Array::new(&array);
+
+                init.body(Some(&uint_8_array));
+            }
+
+            web_sys::console::log_1(&JsValue::from_str(&format!("method {:?}", method.as_ref())));
+            web_sys::console::log_1(&JsValue::from_str(&format!("it's me! {:?}", init)));
+
             Self {
                 init,
                 url: url.as_ref().to_owned(),
