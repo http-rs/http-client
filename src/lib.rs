@@ -69,7 +69,7 @@ pub trait HttpClient: Debug + Unpin + Send + Sync + Clone + 'static {
 /// Both `Body` and `Bytes` values can be easily created from standard owned byte buffer types
 /// like `Vec<u8>` or `String`, using the `From` trait.
 pub struct Body {
-    reader: Box<dyn AsyncRead + Unpin + Send + 'static>,
+    reader: Option<Box<dyn AsyncRead + Unpin + Send + 'static>>,
     /// Intentionally use `u64` over `usize` here.
     /// `usize` won't work if you try to send 10GB file from 32bit host.
     #[allow(dead_code)] // not all backends make use of this
@@ -80,7 +80,7 @@ impl Body {
     /// Create a new empty body.
     pub fn empty() -> Self {
         Self {
-            reader: Box::new(futures::io::empty()),
+            reader: None,
             len: Some(0),
         }
     }
@@ -88,9 +88,14 @@ impl Body {
     /// Create a new instance from a reader.
     pub fn from_reader(reader: impl AsyncRead + Unpin + Send + 'static) -> Self {
         Self {
-            reader: Box::new(reader),
+            reader: Some(Box::new(reader)),
             len: None,
         }
+    }
+
+    /// Validate that the body was created with `Body::empty()`.
+    pub fn is_empty(&self) -> bool {
+        self.reader.is_none()
     }
 }
 
@@ -101,7 +106,10 @@ impl AsyncRead for Body {
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
-        Pin::new(&mut self.reader).poll_read(cx, buf)
+        match self.reader.as_mut() {
+            Some(reader) => Pin::new(reader).poll_read(cx, buf),
+            None => Poll::Ready(Ok(0)),
+        }
     }
 }
 
@@ -118,7 +126,7 @@ impl From<Vec<u8>> for Body {
     fn from(vec: Vec<u8>) -> Body {
         let len = vec.len() as u64;
         Self {
-            reader: Box::new(Cursor::new(vec)),
+            reader: Some(Box::new(Cursor::new(vec))),
             len: Some(len),
         }
     }
@@ -128,6 +136,9 @@ impl<R: AsyncRead + Unpin + Send + 'static> From<Box<R>> for Body {
     /// Converts an `AsyncRead` into a Body.
     #[allow(missing_doc_code_examples)]
     fn from(reader: Box<R>) -> Self {
-        Self { reader, len: None }
+        Self {
+            reader: Some(reader),
+            len: None,
+        }
     }
 }
