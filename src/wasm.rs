@@ -31,9 +31,9 @@ impl Clone for WasmClient {
 impl HttpClient for WasmClient {
     type Error = std::io::Error;
 
-    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
+    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
         let fut = Box::pin(async move {
-            let req = fetch::new(req);
+            let req: fetch::Request = fetch::Request::new(req)?;
             let mut res = req.send().await?;
 
             let body = res.body_bytes();
@@ -72,13 +72,10 @@ impl Future for InnerFuture {
 }
 
 mod fetch {
-    use super::Body;
     use futures_util::io::AsyncReadExt;
     use http::request::Parts;
-    use http::HeaderMap;
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
     use wasm_bindgen::JsCast;
-    use wasm_bindgen::JsValue;
     use wasm_bindgen_futures::JsFuture;
     use web_sys::window;
     use web_sys::RequestInit;
@@ -88,48 +85,60 @@ mod fetch {
     use std::pin::Pin;
 
     /// Create a new fetch request.
-    pub(crate) fn new(mut req: super::Request) -> Request {
-        let url = format!("{}", req.uri());
-        let (
-            Parts {
-                method,
-                uri,
-                headers,
-                ..
-            },
-            body,
-        ) = req.into_parts();
-        Request::new(method, format!("{}", uri), headers, body)
-    }
 
     /// An HTTP Fetch Request.
     pub(crate) struct Request {
         init: RequestInit,
         url: String,
-        body_buf: Pin<Vec<u8>>,
+        _body_buf: Pin<Vec<u8>>,
     }
 
     impl Request {
         /// Create a new instance.
-        pub(crate) fn new(
-            method: impl AsRef<str>,
-            url: impl AsRef<str>,
-            headers: HeaderMap,
-            mut body: Body,
-        ) -> Self {
+        pub(crate) fn new(req: super::Request) -> Result<Self, io::Error> {
+            let (
+                Parts {
+                    method,
+                    uri,
+                    headers,
+                    ..
+                },
+                mut body,
+            ) = req.into_parts();
+
+            //create a fetch request initaliser
             let mut init = web_sys::RequestInit::new();
+
+            //set the fetch method
             init.method(method.as_ref());
 
+            //add any fetch headers
             let init_headers = web_sys::Headers::new().unwrap();
             for (name, value) in headers.iter() {
-                init_headers.append(name.as_str(), value.to_str().unwrap());
+                init_headers
+                    .append(name.as_str(), value.to_str().unwrap())
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::Other,
+                            format!(
+                                "could not add header: {} = {}",
+                                name.as_str(),
+                                value.to_str().expect("could not stringify header value")
+                            ),
+                        )
+                    })?;
             }
             init.headers(&init_headers);
 
+            //convert the body into a uint8 array
+            // needs to be pinned and retained inside the Request because the Uint8Array passed to
+            // js is just a portal into WASM linear memory, and if the underlying data is moved the
+            // js ref will become silently invalid
             let mut body_buf = Vec::with_capacity(1024);
-            futures::executor::block_on(body.read_to_end(&mut body_buf));
+            futures::executor::block_on(body.read_to_end(&mut body_buf)).map_err(|_| {
+                io::Error::new(io::ErrorKind::Other, "could not read body into a buffer")
+            })?;
             let body_pinned = Pin::new(body_buf);
-
             if body_pinned.len() > 0 {
                 unsafe {
                     let uint_8_array = js_sys::Uint8Array::view(&body_pinned);
@@ -137,11 +146,11 @@ mod fetch {
                 }
             }
 
-            Self {
+            Ok(Self {
                 init,
-                url: url.as_ref().to_owned(),
-                body_buf: body_pinned,
-            }
+                url: uri.to_string(),
+                _body_buf: body_pinned,
+            })
         }
 
         /// Submit a request

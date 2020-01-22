@@ -27,8 +27,12 @@ use std::task::{Context, Poll};
 #[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
 pub mod isahc;
 
+#[cfg_attr(feature = "docs", doc(cfg(wasm_client)))]
+#[cfg(all(feature = "wasm_client", target_arch = "wasm32"))]
 pub mod wasm;
 
+#[cfg_attr(feature = "docs", doc(cfg(native_client)))]
+#[cfg(feature = "native_client")]
 pub mod native;
 
 /// An HTTP Request type with a streaming body.

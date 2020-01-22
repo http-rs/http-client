@@ -24,7 +24,6 @@ wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures"]
 [dependencies]
 futures = { version = "0.3.1", features = ["compat", "io-compat"] }
 http = "0.1.19"
-futures-util = "0.3.1"
 
 # isahc-client
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -35,6 +34,7 @@ isahc = { version = "0.8", optional = true, default-features = false, features =
 js-sys = { version = "0.3.25", optional = true }
 wasm-bindgen = { version = "0.2.48", optional = true }
 wasm-bindgen-futures = { version = "0.4.5", optional = true }
+futures-util = "0.3.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
 version = "0.3.25"
@@ -54,6 +54,4 @@ features = [
     "Window",
 ]
 
-#https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/testing-your-project.html
 [dev-dependencies]
-wasm-bindgen-test = "0.2"
