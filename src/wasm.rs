@@ -28,13 +28,6 @@ impl Clone for WasmClient {
     }
 }
 
-//let mut buf = Vec::with_capacity(1024); body.read_to_end(&mut buf).await?;
-
-//self.init
-//.body(Some(JsValue::from_str(std::str::from_utf8(&buf).unwrap())));
-
-//Ok(())
-
 impl HttpClient for WasmClient {
     type Error = std::io::Error;
 
@@ -91,6 +84,7 @@ mod fetch {
     use web_sys::window;
     use web_sys::RequestInit;
 
+use std::pin::Pin;
     use std::io;
     use std::iter::{IntoIterator, Iterator};
 
@@ -113,6 +107,7 @@ mod fetch {
     pub(crate) struct Request {
         init: RequestInit,
         url: String,
+        body_buf: Pin<Vec<u8>>,
     }
 
     impl Request {
@@ -133,24 +128,20 @@ mod fetch {
             init.headers(&init_headers);
 
             let mut body_buf = Vec::with_capacity(1024);
-            futures::executor::block_on(body.read_to_end(&mut body_buf));
+            futures::executor::block_on(body.read_to_end(&mut  body_buf));
+            let body_pinned = Pin::new(body_buf);
 
-            if body_buf.len() > 0 {
-                let array = js_sys::Array::new();
-                for byte in body_buf.iter() {
-                    array.push(&JsValue::from_f64(f64::from(*byte)));
+            if body_pinned.len() > 0 {
+                unsafe {
+                    let uint_8_array = js_sys::Uint8Array::view(&body_pinned);
+                    init.body(Some(&uint_8_array));
                 }
-                let uint_8_array = js_sys::Uint8Array::new(&array);
-
-                init.body(Some(&uint_8_array));
             }
-
-            web_sys::console::log_1(&JsValue::from_str(&format!("method {:?}", method.as_ref())));
-            web_sys::console::log_1(&JsValue::from_str(&format!("it's me! {:?}", init)));
 
             Self {
                 init,
                 url: url.as_ref().to_owned(),
+                body_buf: body_pinned,
             }
         }
 
