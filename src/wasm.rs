@@ -52,7 +52,6 @@ impl HttpClient for WasmClient {
     }
 }
 
-// This type e
 struct InnerFuture {
     fut: Pin<Box<dyn Future<Output = Result<Response, io::Error>> + 'static>>,
 }
@@ -84,9 +83,9 @@ mod fetch {
     use web_sys::window;
     use web_sys::RequestInit;
 
-use std::pin::Pin;
     use std::io;
     use std::iter::{IntoIterator, Iterator};
+    use std::pin::Pin;
 
     /// Create a new fetch request.
     pub(crate) fn new(mut req: super::Request) -> Request {
@@ -128,7 +127,7 @@ use std::pin::Pin;
             init.headers(&init_headers);
 
             let mut body_buf = Vec::with_capacity(1024);
-            futures::executor::block_on(body.read_to_end(&mut  body_buf));
+            futures::executor::block_on(body.read_to_end(&mut body_buf));
             let body_pinned = Pin::new(body_buf);
 
             if body_pinned.len() > 0 {
