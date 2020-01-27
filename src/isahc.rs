@@ -21,8 +21,13 @@ impl Default for IsahcClient {
 impl IsahcClient {
     /// Create a new instance.
     pub fn new() -> Self {
+        Self::from_client(isahc::HttpClient::new().unwrap())
+    }
+
+    /// Create from externally initialized and configured client.
+    pub fn from_client(client: isahc::HttpClient) -> Self {
         Self {
-            client: Arc::new(isahc::HttpClient::new().unwrap()),
+            client: Arc::new(client),
         }
     }
 }
