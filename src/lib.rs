@@ -17,7 +17,6 @@
 use futures::future::BoxFuture;
 use futures::io::{AsyncRead, Cursor};
 
-use std::error::Error;
 use std::fmt::{self, Debug};
 use std::io;
 use std::pin::Pin;
@@ -41,6 +40,9 @@ pub type Request = http::Request<Body>;
 /// An HTTP Response type with a streaming body.
 pub type Response = http::Response<Body>;
 
+/// An error returned by the HTTP backend
+pub type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
+
 /// An abstract HTTP client.
 ///
 /// __note that this is only exposed for use in middleware. Building new backing clients is not
@@ -55,12 +57,9 @@ pub type Response = http::Response<Body>;
 ///
 /// How `Clone` is implemented is up to the implementors, but in an ideal scenario combining this
 /// with the `Client` builder will allow for high connection reuse, improving latency.
-pub trait HttpClient: Debug + Unpin + Send + Sync + Clone + 'static {
-    /// The associated error type.
-    type Error: Error + Send + Sync;
-
+pub trait HttpClient: Debug + Unpin + Send + Sync + Clone + 'static + Sized {
     /// Perform a request.
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>>;
+    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>>;
 }
 
 /// The raw body of an http request or response.
