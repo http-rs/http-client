@@ -1,6 +1,6 @@
 //! http-client implementation for isahc
 
-use super::{Body, HttpClient, Request, Response, Error};
+use super::{Body, Error, HttpClient, Request, Response};
 
 use futures::future::BoxFuture;
 
