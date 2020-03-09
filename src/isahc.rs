@@ -2,6 +2,7 @@
 
 use super::{Body, HttpClient, Request, Response};
 
+use async_std::io::BufReader;
 use futures::future::BoxFuture;
 use isahc::http;
 
@@ -59,12 +60,10 @@ impl HttpClient for IsahcClient {
 
             let (parts, body) = res.into_parts();
 
-            // FIXME: isahc::Body is !Sync, making it impossible to pass to http::Response
-            unimplemented!();
-
-            // let body = Body::from_reader(body, body.len().map(|len| len as usize));
-            // let res = http::Response::from_parts(parts, body);
-            // Ok(res.into())
+            let len = body.len().map(|len| len as usize);
+            let body = Body::from_reader(BufReader::new(body), len);
+            let res = http::Response::from_parts(parts, body);
+            Ok(res.into())
         })
     }
 }
