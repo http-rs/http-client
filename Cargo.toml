@@ -59,6 +59,7 @@ features = [
     "RequestRedirect",
     "Response",
     "Window",
+    "WorkerGlobalScope"
 ]
 
 [dev-dependencies]
