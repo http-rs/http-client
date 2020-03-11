@@ -15,6 +15,7 @@ pub struct WasmClient {
     _priv: (),
 }
 
+
 impl WasmClient {
     /// Create a new instance.
     pub fn new() -> Self {
@@ -142,17 +143,20 @@ mod fetch {
             let scope = WindowOrWorker::new();
             let request = web_sys::Request::new_with_str_and_init(&self.url, &self.init).unwrap();
             let promise = match scope {
-<<<<<<< HEAD
+
                 WindowOrWorker::Window(window) => window.fetch_with_request(&request),
                 WindowOrWorker::Worker(worker) => worker.fetch_with_request(&request),
-=======
+
                 WindowOrWorker::Window(window) => {
                     window.fetch_with_request(&request)
                 }
                  WindowOrWorker::Worker(worker) => {
                     worker.fetch_with_request(&request)
                 }
->>>>>>> allow fetch on worker scripts(web-worker, service-worker)
+
+                WindowOrWorker::Window(window) => window.fetch_with_request(&request),
+                WindowOrWorker::Worker(worker) => worker.fetch_with_request(&request),
+
             };
             let resp = JsFuture::from(promise).await.unwrap();
             debug_assert!(resp.is_instance_of::<web_sys::Response>());
