@@ -52,8 +52,8 @@ impl HttpClient for IsahcClient {
                 isahc::Body::empty()
             } else {
                 match body.len {
-                    Some(len) => isahc::Body::reader_sized(body, len),
-                    None => isahc::Body::reader(body),
+                    Some(len) => isahc::Body::from_reader_sized(body, len),
+                    None => isahc::Body::from_reader(body),
                 }
             };
 
