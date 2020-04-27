@@ -64,14 +64,26 @@ impl HttpClient for H1Client {
             match scheme {
                 "http" => {
                     let stream = async_std::net::TcpStream::connect(addr).await?;
-                    client::connect(stream, req).await
+                    let peer_addr = stream.peer_addr().ok();
+                    let local_addr = stream.local_addr().ok();
+
+                    let mut response = client::connect(stream, req).await?;
+                    response.set_peer_addr(peer_addr);
+                    response.set_local_addr(local_addr);
+
+                    Ok(response)
                 }
                 "https" => {
                     let raw_stream = async_std::net::TcpStream::connect(addr).await?;
-
+                    let peer_addr = raw_stream.peer_addr().ok();
+                    let local_addr = raw_stream.local_addr().ok();
                     let stream = async_native_tls::connect(host, raw_stream).await?;
 
-                    client::connect(stream, req).await
+                    let mut response = client::connect(stream, req).await?;
+                    response.set_peer_addr(peer_addr);
+                    response.set_local_addr(local_addr);
+
+                    Ok(response)
                 }
                 _ => unreachable!(),
             }
