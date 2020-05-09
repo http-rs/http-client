@@ -25,12 +25,12 @@ wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures"]
 
 [dependencies]
 futures = { version = "0.3.1", features = ["compat", "io-compat"] }
-http-types = { version = "1.0.1", features = ["hyperium_http"] }
+http-types = { git = "https://github.com/http-rs/http-types.git", branch = "master" }
 log = "0.4.7"
 
 # h1-client
-async-h1 = { version = "1.0.0", optional = true }
-async-std = { version = "1.4.0", default-features = false, optional = true }
+async-h1 = { git = "https://github.com/jbr/async-h1.git", branch = "update-http-types", optional = true }
+async-std = { version = "1.5.0", default-features = false, optional = true }
 async-native-tls = { version = "0.3.1", optional = true }
 
 # isahc-client
@@ -61,4 +61,3 @@ features = [
     "Window",
 ]
 
-[dev-dependencies]
