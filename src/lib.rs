@@ -38,6 +38,8 @@ pub type Request = http_types::Request;
 /// An HTTP Response type with a streaming body.
 pub type Response = http_types::Response;
 
+pub use http_types;
+
 /// An abstract HTTP client.
 ///
 /// __note that this is only exposed for use in middleware. Building new backing clients is not

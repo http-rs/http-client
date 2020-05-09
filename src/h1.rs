@@ -78,3 +78,49 @@ impl HttpClient for H1Client {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_std::prelude::*;
+    use async_std::task;
+    use http_types::url::Url;
+    use http_types::Result;
+    use std::time::Duration;
+
+    fn build_test_request(url: Url) -> Request {
+        let mut req = Request::new(http_types::Method::Post, url);
+        req.set_body("hello");
+        req.append_header("test", "value");
+        req
+    }
+
+    #[async_std::test]
+    async fn basic_functionality() -> Result<()> {
+        let port = portpicker::pick_unused_port().unwrap();
+        let mut app = tide::new();
+        app.at("/").all(|mut r: tide::Request<()>| async move {
+            let mut response = tide::Response::new(http_types::StatusCode::Ok);
+            response.set_body(r.body_bytes().await.unwrap());
+            Ok(response)
+        });
+
+        let server = task::spawn(async move {
+            app.listen(("localhost", port)).await?;
+            Result::Ok(())
+        });
+
+        let client = task::spawn(async move {
+            task::sleep(Duration::from_millis(100)).await;
+            let request =
+                build_test_request(Url::parse(&format!("http://localhost:{}/", port)).unwrap());
+            let response: Response = H1Client::new().send(request).await?;
+            assert_eq!(response.body_string().await.unwrap(), "hello");
+            Ok(())
+        });
+
+        server.race(client).await?;
+
+        Ok(())
+    }
+}
