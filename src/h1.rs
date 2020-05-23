@@ -32,13 +32,14 @@ impl Clone for H1Client {
 impl HttpClient for H1Client {
     type Error = Error;
 
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
+    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
         Box::pin(async move {
             // Insert host
             let host = req
                 .url()
                 .host_str()
-                .ok_or_else(|| Error::from_str(StatusCode::BadRequest, "missing hostname"))?;
+                .ok_or_else(|| Error::from_str(StatusCode::BadRequest, "missing hostname"))?
+                .to_string();
 
             let scheme = req.url().scheme();
             if scheme != "http" && scheme != "https" {
@@ -64,10 +65,14 @@ impl HttpClient for H1Client {
             match scheme {
                 "http" => {
                     let stream = async_std::net::TcpStream::connect(addr).await?;
+                    req.set_peer_addr(stream.peer_addr().ok());
+                    req.set_local_addr(stream.local_addr().ok());
                     client::connect(stream, req).await
                 }
                 "https" => {
                     let raw_stream = async_std::net::TcpStream::connect(addr).await?;
+                    req.set_peer_addr(raw_stream.peer_addr().ok());
+                    req.set_local_addr(raw_stream.local_addr().ok());
 
                     let stream = async_native_tls::connect(host, raw_stream).await?;
 
