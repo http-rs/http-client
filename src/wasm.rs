@@ -5,6 +5,7 @@ use super::{Body, Error, HttpClient, Request, Response};
 use futures::future::BoxFuture;
 use futures::prelude::*;
 
+use std::convert::TryFrom;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -31,17 +32,19 @@ impl Clone for WasmClient {
 impl HttpClient for WasmClient {
     fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>> {
         let fut = Box::pin(async move {
-            let url = format!("{}", req.uri());
-            let req = fetch::new(req.method().as_str(), &url);
+            let req = fetch::new(req.method(), req.url());
             let mut res = req.send().await?;
 
             let body = res.body_bytes();
-            let mut response = Response::new(Body::from(body));
-            *response.status_mut() = http::StatusCode::from_u16(res.status()).unwrap();
-
+            let mut response =
+                Response::new(http_types::StatusCode::try_from(res.status()).unwrap());
+            response.set_body(Body::from(body));
             for (name, value) in res.headers() {
-                let name: http::header::HeaderName = name.parse().unwrap();
-                response.headers_mut().insert(name, value.parse().unwrap());
+                let name: http_types::headers::HeaderName = name.parse().unwrap();
+                response.insert_header(
+                    &name,
+                    value.parse::<http_types::headers::HeaderValue>().unwrap(),
+                );
             }
 
             Ok(response)
