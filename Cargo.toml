@@ -24,8 +24,8 @@ curl_client = ["isahc", "async-std"]
 wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures"]
 
 [dependencies]
-futures = { version = "0.3.1", features = ["compat", "io-compat"] }
-http-types = "2.0.0"
+futures = { version = "0.3.1" }
+http-types = "2.0.1"
 log = "0.4.7"
 
 # h1-client
