@@ -1,6 +1,6 @@
 //! http-client implementation for fetch
 
-use super::{Body, Error, HttpClient, Request, Response};
+use super::{http_types::Headers, Body, HttpClient, Request, Response};
 
 use futures::future::BoxFuture;
 use futures::prelude::*;
@@ -32,7 +32,7 @@ impl Clone for WasmClient {
 impl HttpClient for WasmClient {
     fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>> {
         let fut = Box::pin(async move {
-            let req: fetch::Request = fetch::Request::new(req)?;
+            let req: fetch::Request = fetch::Request::new(req).await?;
             let mut res = req.send().await?;
 
             let body = res.body_bytes();
@@ -75,7 +75,6 @@ impl Future for InnerFuture {
 
 mod fetch {
     use futures_util::io::AsyncReadExt;
-    use http::request::Parts;
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
     use wasm_bindgen::{prelude::*, JsCast};
     use wasm_bindgen_futures::JsFuture;
@@ -90,8 +89,7 @@ mod fetch {
 
     /// An HTTP Fetch Request.
     pub(crate) struct Request {
-        init: RequestInit,
-        url: String,
+        request: web_sys::Request,
         _body_buf: Pin<Vec<u8>>,
     }
 
@@ -127,47 +125,22 @@ mod fetch {
 
     impl Request {
         /// Create a new instance.
-        pub(crate) fn new(req: super::Request) -> Result<Self, io::Error> {
-            let (
-                Parts {
-                    method,
-                    uri,
-                    headers,
-                    ..
-                },
-                mut body,
-            ) = req.into_parts();
-
+        pub(crate) async fn new(mut req: super::Request) -> Result<Self, io::Error> {
             //create a fetch request initaliser
-            let mut init = web_sys::RequestInit::new();
+            let mut init = RequestInit::new();
 
             //set the fetch method
-            init.method(method.as_ref());
+            init.method(req.method().as_ref());
 
-            //add any fetch headers
-            let init_headers = web_sys::Headers::new().unwrap();
-            for (name, value) in headers.iter() {
-                init_headers
-                    .append(name.as_str(), value.to_str().unwrap())
-                    .map_err(|_| {
-                        io::Error::new(
-                            io::ErrorKind::Other,
-                            format!(
-                                "could not add header: {} = {}",
-                                name.as_str(),
-                                value.to_str().expect("could not stringify header value")
-                            ),
-                        )
-                    })?;
-            }
-            init.headers(&init_headers);
+            let uri = req.url().to_string();
+            let mut body = req.take_body();
 
             //convert the body into a uint8 array
             // needs to be pinned and retained inside the Request because the Uint8Array passed to
             // js is just a portal into WASM linear memory, and if the underlying data is moved the
             // js ref will become silently invalid
             let mut body_buf = Vec::with_capacity(1024);
-            futures::executor::block_on(body.read_to_end(&mut body_buf)).map_err(|_| {
+            body.read_to_end(&mut body_buf).await.map_err(|_| {
                 io::Error::new(io::ErrorKind::Other, "could not read body into a buffer")
             })?;
             let body_pinned = Pin::new(body_buf);
@@ -178,9 +151,29 @@ mod fetch {
                 }
             }
 
+            let request = web_sys::Request::new_with_str_and_init(&uri, &init).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("failed to create request: {:?}", e),
+                )
+            })?;
+
+            //add any fetch headers
+            let headers: &mut super::Headers = req.as_mut();
+            for (name, value) in headers.iter() {
+                let name = name.as_str();
+                let value = value.as_str();
+
+                request.headers().set(name, value).map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("could not add header: {} = {}", name, value),
+                    )
+                })?;
+            }
+
             Ok(Self {
-                init,
-                url: uri.to_string(),
+                request,
                 _body_buf: body_pinned,
             })
         }
