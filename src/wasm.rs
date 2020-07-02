@@ -41,10 +41,7 @@ impl HttpClient for WasmClient {
             response.set_body(Body::from(body));
             for (name, value) in res.headers() {
                 let name: http_types::headers::HeaderName = name.parse().unwrap();
-                response.insert_header(
-                    &name,
-                    value.parse::<http_types::headers::HeaderValue>().unwrap(),
-                );
+                response.insert_header(&name, value);
             }
 
             Ok(response)
@@ -74,7 +71,6 @@ impl Future for InnerFuture {
 }
 
 mod fetch {
-    use futures_util::io::AsyncReadExt;
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
     use wasm_bindgen::{prelude::*, JsCast};
     use wasm_bindgen_futures::JsFuture;
@@ -90,7 +86,9 @@ mod fetch {
     /// An HTTP Fetch Request.
     pub(crate) struct Request {
         request: web_sys::Request,
-        _body_buf: Pin<Vec<u8>>,
+        /// This field stores the body of the request to ensure it stays allocated as long as the request needs it.
+        #[allow(dead_code)]
+        body_buf: Pin<Vec<u8>>,
     }
 
     enum WindowOrWorker {
@@ -126,29 +124,26 @@ mod fetch {
     impl Request {
         /// Create a new instance.
         pub(crate) async fn new(mut req: super::Request) -> Result<Self, io::Error> {
-            //create a fetch request initaliser
+            // create a fetch request initaliser
             let mut init = RequestInit::new();
 
-            //set the fetch method
+            // set the fetch method
             init.method(req.method().as_ref());
 
             let uri = req.url().to_string();
-            let mut body = req.take_body();
+            let body = req.take_body();
 
-            //convert the body into a uint8 array
+            // convert the body into a uint8 array
             // needs to be pinned and retained inside the Request because the Uint8Array passed to
             // js is just a portal into WASM linear memory, and if the underlying data is moved the
             // js ref will become silently invalid
-            let mut body_buf = Vec::with_capacity(1024);
-            body.read_to_end(&mut body_buf).await.map_err(|_| {
+            let body_buf = body.into_bytes().await.map_err(|_| {
                 io::Error::new(io::ErrorKind::Other, "could not read body into a buffer")
             })?;
             let body_pinned = Pin::new(body_buf);
             if body_pinned.len() > 0 {
-                unsafe {
-                    let uint_8_array = js_sys::Uint8Array::view(&body_pinned);
-                    init.body(Some(&uint_8_array));
-                }
+                let uint_8_array = unsafe { js_sys::Uint8Array::view(&body_pinned) };
+                init.body(Some(&uint_8_array));
             }
 
             let request = web_sys::Request::new_with_str_and_init(&uri, &init).map_err(|e| {
@@ -158,7 +153,7 @@ mod fetch {
                 )
             })?;
 
-            //add any fetch headers
+            // add any fetch headers
             let headers: &mut super::Headers = req.as_mut();
             for (name, value) in headers.iter() {
                 let name = name.as_str();
@@ -174,7 +169,7 @@ mod fetch {
 
             Ok(Self {
                 request,
-                _body_buf: body_pinned,
+                body_buf: body_pinned,
             })
         }
 
