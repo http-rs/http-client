@@ -1,10 +1,10 @@
 //! http-client implementation for async-h1.
 
-use super::{HttpClient, Request, Response};
+use super::{Error, HttpClient, Request, Response};
 
 use async_h1::client;
 use futures::future::BoxFuture;
-use http_types::{Error, StatusCode};
+use http_types::StatusCode;
 
 /// Async-h1 based HTTP Client.
 #[derive(Debug)]
@@ -30,9 +30,7 @@ impl Clone for H1Client {
 }
 
 impl HttpClient for H1Client {
-    type Error = Error;
-
-    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
+    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Error>> {
         Box::pin(async move {
             // Insert host
             let host = req
