@@ -53,11 +53,8 @@ pub use http_types;
 /// though middleware for one of its own requests, and in order to do so should be wrapped in an
 /// `Rc`/`Arc` to enable reference cloning.
 pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + 'static {
-    /// The associated error type.
-    type Error: Send + Sync + Into<Error>;
-
     /// Perform a request.
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>>;
+    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>>;
 }
 
 /// The raw body of an http request or response.
