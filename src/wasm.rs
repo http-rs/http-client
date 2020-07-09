@@ -1,6 +1,6 @@
 //! http-client implementation for fetch
 
-use super::{Body, HttpClient, Request, Response};
+use super::{Body, Error, HttpClient, Request, Response};
 
 use futures::future::BoxFuture;
 use futures::prelude::*;
@@ -29,9 +29,7 @@ impl Clone for WasmClient {
 }
 
 impl HttpClient for WasmClient {
-    type Error = std::io::Error;
-
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
+    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>> {
         let fut = Box::pin(async move {
             let url = format!("{}", req.uri());
             let req = fetch::new(req.method().as_str(), &url);

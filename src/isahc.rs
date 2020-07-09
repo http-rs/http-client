@@ -1,6 +1,6 @@
 //! http-client implementation for isahc
 
-use super::{Body, HttpClient, Request, Response};
+use super::{Body, Error, HttpClient, Request, Response};
 
 use async_std::io::BufReader;
 use futures::future::BoxFuture;
@@ -42,9 +42,7 @@ impl Clone for IsahcClient {
 }
 
 impl HttpClient for IsahcClient {
-    type Error = isahc::Error;
-
-    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
+    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Error>> {
         let client = self.client.clone();
         Box::pin(async move {
             let mut builder = http::Request::builder()
@@ -65,7 +63,7 @@ impl HttpClient for IsahcClient {
             };
 
             let request = builder.body(body).unwrap();
-            let res = client.send_async(request).await?;
+            let res = client.send_async(request).await.map_err(Error::from)?;
             let (parts, body) = res.into_parts();
             let len = body.len().map(|len| len as usize);
             let body = Body::from_reader(BufReader::new(body), len);
