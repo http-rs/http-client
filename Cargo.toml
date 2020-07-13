@@ -16,7 +16,7 @@ features = ["docs"]
 rustdoc-args = ["--cfg", "feature=\"docs\""]
 
 [features]
-default = ["h1_client", "hyper_client"]
+default = ["h1_client"]
 docs = ["h1_client"]
 h1_client = ["async-h1", "async-std", "async-native-tls"]
 native_client = ["curl_client", "wasm_client"]
