@@ -17,6 +17,10 @@
 use futures::future::BoxFuture;
 
 #[cfg_attr(feature = "docs", doc(cfg(curl_client)))]
+#[cfg(all(feature = "hyper_client", not(target_arch = "wasm32")))]
+pub mod hyper;
+
+#[cfg_attr(feature = "docs", doc(cfg(curl_client)))]
 #[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
 pub mod isahc;
 
