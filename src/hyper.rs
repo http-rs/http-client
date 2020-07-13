@@ -113,7 +113,6 @@ struct HttpTypesResponse {
 }
 
 impl HttpTypesResponse {
-
     async fn try_from(value: hyper::Response<hyper::Body>) -> Result<Self, Error> {
         // Note: Much of this code was taken from the `http-types` compat implementation. Trying to
         // figure out the feature flags to conditionally compile with compat support was rather
