@@ -17,10 +17,6 @@
 use futures::future::BoxFuture;
 
 #[cfg_attr(feature = "docs", doc(cfg(curl_client)))]
-#[cfg(all(feature = "hyper_client", not(target_arch = "wasm32")))]
-pub mod hyper;
-
-#[cfg_attr(feature = "docs", doc(cfg(curl_client)))]
 #[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
 pub mod isahc;
 
@@ -35,6 +31,10 @@ pub mod native;
 #[cfg_attr(feature = "docs", doc(cfg(h1_client)))]
 #[cfg(feature = "h1_client")]
 pub mod h1;
+
+#[cfg_attr(feature = "docs", doc(cfg(hyper_client)))]
+#[cfg(feature = "hyper_client")]
+pub mod hyper;
 
 /// An HTTP Request type with a streaming body.
 pub type Request = http_types::Request;
