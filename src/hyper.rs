@@ -2,10 +2,10 @@
 
 use super::{Error, HttpClient, Request, Response};
 use http_types::headers::{HeaderName, HeaderValue};
-use http_types::{Method, StatusCode, Version};
+use http_types::StatusCode;
 use hyper::body::HttpBody;
 use hyper_tls::HttpsConnector;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 /// Hyper-based HTTP Client.
@@ -53,43 +53,10 @@ struct HyperHttpRequest {
 
 impl HyperHttpRequest {
     async fn try_from(mut value: Request) -> Result<Self, Error> {
-        let method = match value.method() {
-            Method::Get => hyper::Method::GET,
-            Method::Head => hyper::Method::HEAD,
-            Method::Post => hyper::Method::POST,
-            Method::Put => hyper::Method::PUT,
-            Method::Patch => hyper::Method::PATCH,
-            Method::Options => hyper::Method::OPTIONS,
-            Method::Trace => hyper::Method::TRACE,
-            Method::Connect => hyper::Method::CONNECT,
-            _ => {
-                return Err(Error::from_str(
-                    StatusCode::BadRequest,
-                    "unrecognized HTTP method",
-                ))
-            }
-        };
-
-        let version = value
-            .version()
-            .map(|v| match v {
-                Version::Http0_9 => Ok(hyper::Version::HTTP_09),
-                Version::Http1_0 => Ok(hyper::Version::HTTP_10),
-                Version::Http1_1 => Ok(hyper::Version::HTTP_11),
-                Version::Http2_0 => Ok(hyper::Version::HTTP_2),
-                Version::Http3_0 => Ok(hyper::Version::HTTP_3),
-                _ => Err(Error::from_str(
-                    StatusCode::BadRequest,
-                    "unrecognized HTTP version",
-                )),
-            })
-            .or(Some(Ok(hyper::Version::default())))
-            .unwrap()?;
-
         // UNWRAP: This unwrap is unjustified in `http-types`, need to check if it's actually safe.
         let uri = hyper::Uri::try_from(&format!("{}", value.url())).unwrap();
 
-        // `HttpClient` depends on the scheme being either "http" or "https"
+        // `HyperClient` depends on the scheme being either "http" or "https"
         match uri.scheme_str() {
             Some("http") | Some("https") => (),
             _ => return Err(Error::from_str(StatusCode::BadRequest, "invalid scheme")),
@@ -114,13 +81,13 @@ impl HyperHttpRequest {
         let body = value.body_bytes().await?;
         let body = hyper::Body::from(body);
 
-        let req = hyper::Request::builder()
-            .method(method)
-            .version(version)
+        let request = request
+            .method(value.method())
+            .version(value.version().map(|v| v.into()).unwrap_or_default())
             .uri(uri)
             .body(body)?;
 
-        Ok(HyperHttpRequest { inner: req })
+        Ok(HyperHttpRequest { inner: request })
     }
 
     fn into_inner(self) -> hyper::Request<hyper::Body> {
@@ -136,21 +103,6 @@ impl HttpTypesResponse {
     async fn try_from(value: hyper::Response<hyper::Body>) -> Result<Self, Error> {
         let (parts, mut body) = value.into_parts();
 
-        // UNWRAP: http and http-types implement the same status codes
-        let status: StatusCode = parts.status.as_u16().try_into().unwrap();
-
-        let version = match parts.version {
-            hyper::Version::HTTP_09 => Ok(http_types::Version::Http0_9),
-            hyper::Version::HTTP_10 => Ok(http_types::Version::Http1_0),
-            hyper::Version::HTTP_11 => Ok(http_types::Version::Http1_1),
-            hyper::Version::HTTP_2 => Ok(http_types::Version::Http2_0),
-            hyper::Version::HTTP_3 => Ok(http_types::Version::Http3_0),
-            _ => Err(Error::from_str(
-                StatusCode::BadGateway,
-                "unrecognized HTTP response version",
-            )),
-        }?;
-
         let body = match body.data().await {
             None => None,
             Some(Ok(b)) => Some(b),
@@ -164,8 +116,8 @@ impl HttpTypesResponse {
         .map(|b| http_types::Body::from_bytes(b.to_vec()))
         .unwrap_or(http_types::Body::empty());
 
-        let mut res = Response::new(status);
-        res.set_version(Some(version));
+        let mut res = Response::new(parts.status);
+        res.set_version(Some(parts.version.into()));
 
         for (name, value) in parts.headers {
             let value = value.as_bytes().to_owned();
