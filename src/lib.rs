@@ -47,19 +47,14 @@ pub use http_types;
 /// trait from there together with all existing HTTP client implementations.__
 ///
 /// ## Spawning new request from middleware
-/// When threading the trait through a layer of middleware, the middleware must be able to perform
-/// new requests. In order to enable this we pass an `HttpClient` instance through the middleware,
-/// with a `Clone` implementation. In order to spawn a new request, `clone` is called, and a new
-/// request is enabled.
 ///
-/// How `Clone` is implemented is up to the implementors, but in an ideal scenario combining this
-/// with the `Client` builder will allow for high connection reuse, improving latency.
-pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + Clone + 'static {
-    /// The associated error type.
-    type Error: Send + Sync + Into<Error>;
-
+/// When threading the trait through a layer of middleware, the middleware must be able to perform
+/// new requests. In order to enable this efficiently an `HttpClient` instance may want to be passed
+/// though middleware for one of its own requests, and in order to do so should be wrapped in an
+/// `Rc`/`Arc` to enable reference cloning.
+pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + 'static {
     /// Perform a request.
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>>;
+    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>>;
 }
 
 /// The raw body of an http request or response.

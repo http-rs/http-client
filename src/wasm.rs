@@ -1,12 +1,11 @@
 //! http-client implementation for fetch
 
-use super::{http_types::Headers, Body, HttpClient, Request, Response};
+use super::{http_types::Headers, Body, Error, HttpClient, Request, Response};
 
 use futures::future::BoxFuture;
 use futures::prelude::*;
 
 use std::convert::TryFrom;
-use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -30,9 +29,7 @@ impl Clone for WasmClient {
 }
 
 impl HttpClient for WasmClient {
-    type Error = std::io::Error;
-
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
+    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>> {
         let fut = Box::pin(async move {
             let req: fetch::Request = fetch::Request::new(req).await?;
             let mut res = req.send().await?;
@@ -54,7 +51,7 @@ impl HttpClient for WasmClient {
 }
 
 struct InnerFuture {
-    fut: Pin<Box<dyn Future<Output = Result<Response, io::Error>> + 'static>>,
+    fut: Pin<Box<dyn Future<Output = Result<Response, Error>> + 'static>>,
 }
 
 // This is safe because WASM doesn't have threads yet. Once WASM supports threads we should use a
@@ -62,7 +59,7 @@ struct InnerFuture {
 unsafe impl Send for InnerFuture {}
 
 impl Future for InnerFuture {
-    type Output = Result<Response, io::Error>;
+    type Output = Result<Response, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // This is safe because we're only using this future as a pass-through for the inner
