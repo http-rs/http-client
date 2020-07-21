@@ -26,7 +26,7 @@ wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures"]
 
 [dependencies]
 futures = {version = "0.3.1"}
-http-types = "2.2.1"
+http-types = "2.3.0"
 log = "0.4.7"
 
 # h1-client
