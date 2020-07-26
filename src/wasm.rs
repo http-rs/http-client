@@ -75,9 +75,12 @@ mod fetch {
     use wasm_bindgen_futures::JsFuture;
     use web_sys::{window, RequestInit};
 
-    use std::io;
     use std::iter::{IntoIterator, Iterator};
     use std::pin::Pin;
+
+    use http_types::StatusCode;
+
+    use crate::Error;
 
     /// Create a new fetch request.
 
@@ -91,7 +94,7 @@ mod fetch {
 
     impl Request {
         /// Create a new instance.
-        pub(crate) async fn new(mut req: super::Request) -> Result<Self, io::Error> {
+        pub(crate) async fn new(mut req: super::Request) -> Result<Self, Error> {
             // create a fetch request initaliser
             let mut init = RequestInit::new();
 
@@ -106,7 +109,7 @@ mod fetch {
             // js is just a portal into WASM linear memory, and if the underlying data is moved the
             // js ref will become silently invalid
             let body_buf = body.into_bytes().await.map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "could not read body into a buffer")
+                Error::from_str(StatusCode::BadRequest, "could not read body into a buffer")
             })?;
             let body_pinned = Pin::new(body_buf);
             if body_pinned.len() > 0 {
@@ -115,8 +118,8 @@ mod fetch {
             }
 
             let request = web_sys::Request::new_with_str_and_init(&uri, &init).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
+                Error::from_str(
+                    StatusCode::BadRequest,
                     format!("failed to create request: {:?}", e),
                 )
             })?;
@@ -128,8 +131,8 @@ mod fetch {
                 let value = value.as_str();
 
                 request.headers().set(name, value).map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
+                    Error::from_str(
+                        StatusCode::BadRequest,
                         format!("could not add header: {} = {}", name, value),
                     )
                 })?;
@@ -143,11 +146,14 @@ mod fetch {
 
         /// Submit a request
         // TODO(yoshuawuyts): turn this into a `Future` impl on `Request` instead.
-        pub(crate) async fn send(self) -> Result<Response, io::Error> {
+        pub(crate) async fn send(self) -> Result<Response, Error> {
             // Send the request.
             let window = window().expect("A global window object could not be found");
             let promise = window.fetch_with_request(&self.request);
-            let resp = JsFuture::from(promise).await.unwrap();
+            let resp = JsFuture::from(promise)
+                .await
+                .map_err(|e| Error::from_str(StatusCode::BadRequest, format!("{:?}", e)))?;
+
             debug_assert!(resp.is_instance_of::<web_sys::Response>());
             let res: web_sys::Response = resp.dyn_into().unwrap();
 
