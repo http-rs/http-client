@@ -32,6 +32,10 @@ pub mod native;
 #[cfg(feature = "h1_client")]
 pub mod h1;
 
+#[cfg_attr(feature = "docs", doc(cfg(hyper_client)))]
+#[cfg(feature = "hyper_client")]
+pub mod hyper;
+
 /// An HTTP Request type with a streaming body.
 pub type Request = http_types::Request;
 
