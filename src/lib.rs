@@ -14,8 +14,6 @@
     forbid(unsafe_code)
 )]
 
-use futures::future::BoxFuture;
-
 #[cfg_attr(feature = "docs", doc(cfg(curl_client)))]
 #[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
 pub mod isahc;
@@ -42,6 +40,7 @@ pub type Request = http_types::Request;
 /// An HTTP Response type with a streaming body.
 pub type Response = http_types::Response;
 
+pub use async_trait::async_trait;
 pub use http_types;
 
 /// An abstract HTTP client.
@@ -56,9 +55,10 @@ pub use http_types;
 /// new requests. In order to enable this efficiently an `HttpClient` instance may want to be passed
 /// though middleware for one of its own requests, and in order to do so should be wrapped in an
 /// `Rc`/`Arc` to enable reference cloning.
+#[async_trait]
 pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + 'static {
     /// Perform a request.
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>>;
+    async fn send(&self, req: Request) -> Result<Response, Error>;
 }
 
 /// The raw body of an http request or response.
