@@ -2,7 +2,6 @@
 
 use super::{http_types::Headers, Body, Error, HttpClient, Request, Response};
 
-use futures::future::BoxFuture;
 use futures::prelude::*;
 
 use std::convert::TryFrom;
@@ -29,8 +28,15 @@ impl Clone for WasmClient {
 }
 
 impl HttpClient for WasmClient {
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Error>> {
-        let fut = Box::pin(async move {
+    fn send<'a, 'async_trait>(
+        &'a self,
+        req: Request,
+    ) -> Pin<Box<dyn Future<Output = Result<Response, Error>> + Send + 'async_trait>>
+    where
+        'a: 'async_trait,
+        Self: 'async_trait,
+    {
+        InnerFuture::new(async move {
             let req: fetch::Request = fetch::Request::new(req).await?;
             let mut res = req.send().await?;
 
@@ -44,14 +50,18 @@ impl HttpClient for WasmClient {
             }
 
             Ok(response)
-        });
-
-        Box::pin(InnerFuture { fut })
+        })
     }
 }
 
 struct InnerFuture {
     fut: Pin<Box<dyn Future<Output = Result<Response, Error>> + 'static>>,
+}
+
+impl InnerFuture {
+    fn new<F: Future<Output = Result<Response, Error>> + 'static>(fut: F) -> Pin<Box<Self>> {
+        Box::pin(Self { fut: Box::pin(fut) })
+    }
 }
 
 // This is safe because WASM doesn't have threads yet. Once WASM supports threads we should use a

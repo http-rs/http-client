@@ -1,6 +1,6 @@
 //! http-client implementation for reqwest
 
-use super::{Error, HttpClient, Request, Response};
+use super::{async_trait, Error, HttpClient, Request, Response};
 use http_types::headers::{HeaderName, HeaderValue};
 use http_types::StatusCode;
 use hyper::body::HttpBody;
@@ -21,29 +21,28 @@ impl HyperClient {
     }
 }
 
+#[async_trait]
 impl HttpClient for HyperClient {
-    fn send(&self, req: Request) -> futures::future::BoxFuture<'static, Result<Response, Error>> {
-        Box::pin(async move {
-            let req = HyperHttpRequest::try_from(req).await?.into_inner();
-            // UNWRAP: Scheme guaranteed to be "http" or "https" as part of conversion
-            let scheme = req.uri().scheme_str().unwrap();
+    async fn send(&self, req: Request) -> Result<Response, Error> {
+        let req = HyperHttpRequest::try_from(req).await?.into_inner();
+        // UNWRAP: Scheme guaranteed to be "http" or "https" as part of conversion
+        let scheme = req.uri().scheme_str().unwrap();
 
-            let response = match scheme {
-                "http" => {
-                    let client = hyper::Client::builder().build_http::<hyper::Body>();
-                    client.request(req).await
-                }
-                "https" => {
-                    let https = HttpsConnector::new();
-                    let client = hyper::Client::builder().build::<_, hyper::Body>(https);
-                    client.request(req).await
-                }
-                _ => unreachable!(),
-            }?;
+        let response = match scheme {
+            "http" => {
+                let client = hyper::Client::builder().build_http::<hyper::Body>();
+                client.request(req).await
+            }
+            "https" => {
+                let https = HttpsConnector::new();
+                let client = hyper::Client::builder().build::<_, hyper::Body>(https);
+                client.request(req).await
+            }
+            _ => unreachable!(),
+        }?;
 
-            let resp = HttpTypesResponse::try_from(response).await?.into_inner();
-            Ok(resp)
-        })
+        let resp = HttpTypesResponse::try_from(response).await?.into_inner();
+        Ok(resp)
     }
 }
 

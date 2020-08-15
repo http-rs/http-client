@@ -1,9 +1,8 @@
 //! http-client implementation for isahc
 
-use super::{Body, Error, HttpClient, Request, Response};
+use super::{async_trait, Body, Error, HttpClient, Request, Response};
 
 use async_std::io::BufReader;
-use futures::future::BoxFuture;
 use isahc::http;
 use std::sync::Arc;
 
@@ -41,8 +40,9 @@ impl Clone for IsahcClient {
     }
 }
 
+#[async_trait]
 impl HttpClient for IsahcClient {
-    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Error>> {
+    async fn send(&self, mut req: Request) -> Result<Response, Error> {
         let client = self.client.clone();
         Box::pin(async move {
             let mut builder = http::Request::builder()

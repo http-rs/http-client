@@ -1,9 +1,8 @@
 //! http-client implementation for async-h1.
 
-use super::{Error, HttpClient, Request, Response};
+use super::{async_trait, Error, HttpClient, Request, Response};
 
 use async_h1::client;
-use futures::future::BoxFuture;
 use http_types::StatusCode;
 
 /// Async-h1 based HTTP Client.
@@ -29,56 +28,55 @@ impl Clone for H1Client {
     }
 }
 
+#[async_trait]
 impl HttpClient for H1Client {
-    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Error>> {
-        Box::pin(async move {
-            // Insert host
-            let host = req
-                .url()
-                .host_str()
-                .ok_or_else(|| Error::from_str(StatusCode::BadRequest, "missing hostname"))?
-                .to_string();
+    async fn send(&self, mut req: Request) -> Result<Response, Error> {
+        // Insert host
+        let host = req
+            .url()
+            .host_str()
+            .ok_or_else(|| Error::from_str(StatusCode::BadRequest, "missing hostname"))?
+            .to_string();
 
-            let scheme = req.url().scheme();
-            if scheme != "http" && scheme != "https" {
-                return Err(Error::from_str(
-                    StatusCode::BadRequest,
-                    format!("invalid url scheme '{}'", scheme),
-                ));
+        let scheme = req.url().scheme();
+        if scheme != "http" && scheme != "https" {
+            return Err(Error::from_str(
+                StatusCode::BadRequest,
+                format!("invalid url scheme '{}'", scheme),
+            ));
+        }
+
+        let addr = req
+            .url()
+            .socket_addrs(|| match req.url().scheme() {
+                "http" => Some(80),
+                "https" => Some(443),
+                _ => None,
+            })?
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::from_str(StatusCode::BadRequest, "missing valid address"))?;
+
+        log::trace!("> Scheme: {}", scheme);
+
+        match scheme {
+            "http" => {
+                let stream = async_std::net::TcpStream::connect(addr).await?;
+                req.set_peer_addr(stream.peer_addr().ok());
+                req.set_local_addr(stream.local_addr().ok());
+                client::connect(stream, req).await
             }
+            "https" => {
+                let raw_stream = async_std::net::TcpStream::connect(addr).await?;
+                req.set_peer_addr(raw_stream.peer_addr().ok());
+                req.set_local_addr(raw_stream.local_addr().ok());
 
-            let addr = req
-                .url()
-                .socket_addrs(|| match req.url().scheme() {
-                    "http" => Some(80),
-                    "https" => Some(443),
-                    _ => None,
-                })?
-                .into_iter()
-                .next()
-                .ok_or_else(|| Error::from_str(StatusCode::BadRequest, "missing valid address"))?;
+                let stream = async_native_tls::connect(host, raw_stream).await?;
 
-            log::trace!("> Scheme: {}", scheme);
-
-            match scheme {
-                "http" => {
-                    let stream = async_std::net::TcpStream::connect(addr).await?;
-                    req.set_peer_addr(stream.peer_addr().ok());
-                    req.set_local_addr(stream.local_addr().ok());
-                    client::connect(stream, req).await
-                }
-                "https" => {
-                    let raw_stream = async_std::net::TcpStream::connect(addr).await?;
-                    req.set_peer_addr(raw_stream.peer_addr().ok());
-                    req.set_local_addr(raw_stream.local_addr().ok());
-
-                    let stream = async_native_tls::connect(host, raw_stream).await?;
-
-                    client::connect(stream, req).await
-                }
-                _ => unreachable!(),
+                client::connect(stream, req).await
             }
-        })
+            _ => unreachable!(),
+        }
     }
 }
 
