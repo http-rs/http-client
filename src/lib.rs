@@ -25,7 +25,7 @@ pub mod isahc;
 pub mod wasm;
 
 #[cfg_attr(feature = "docs", doc(cfg(native_client)))]
-#[cfg(feature = "native_client")]
+#[cfg(any(feature = "curl_client", feature = "wasm_client"))]
 pub mod native;
 
 #[cfg_attr(feature = "docs", doc(cfg(h1_client)))]
