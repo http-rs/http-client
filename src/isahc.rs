@@ -49,10 +49,8 @@ impl HttpClient for IsahcClient {
                 .uri(req.url().as_str())
                 .method(http::Method::from_bytes(req.method().to_string().as_bytes()).unwrap());
 
-            for name in req.header_names() {
-                if let Some(value) = req.header(name) {
-                    builder = builder.header(name.as_str(), value.as_str());
-                }
+            for (name, value) in req.iter() {
+                builder = builder.header(name.as_str(), value.as_str());
             }
 
             let body = req.take_body();
