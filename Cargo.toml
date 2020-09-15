@@ -37,6 +37,7 @@ async-native-tls = { version = "0.3.1", optional = true }
 # reqwest-client
 hyper = { version = "0.13.6", features = ["tcp"], optional = true }
 hyper-tls = { version = "0.4.3", optional = true }
+async-trait = "0.1.37"
 
 # isahc-client
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
