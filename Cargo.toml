@@ -21,13 +21,14 @@ default = ["h1_client"]
 docs = ["h1_client"]
 h1_client = ["async-h1", "async-std", "async-native-tls"]
 hyper_client = ["hyper", "hyper-tls"]
+hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http"]
 native_client = ["curl_client", "wasm_client"]
 wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures"]
 
 [dependencies]
 async-trait = "0.1.37"
 futures = "0.3.1"
-http-types = {version = "2.3.0", features = ["hyperium_http"]}
+http-types = "2.3.0"
 log = "0.4.7"
 
 # h1_client
