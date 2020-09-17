@@ -21,12 +21,11 @@ docs = ["h1_client"]
 h1_client = ["async-h1", "async-std", "async-native-tls"]
 native_client = ["curl_client", "wasm_client"]
 curl_client = ["isahc", "async-std"]
-wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures"]
+wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures"]
 hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http"]
 
 [dependencies]
 async-trait = "0.1.37"
-futures = "0.3.1"
 http-types = "2.3.0"
 log = "0.4.7"
 
@@ -48,6 +47,7 @@ isahc = { version = "0.9", optional = true, default-features = false, features =
 js-sys = { version = "0.3.25", optional = true }
 wasm-bindgen = { version = "0.2.48", optional = true }
 wasm-bindgen-futures = { version = "0.4.5", optional = true }
+futures = { version = "0.3.1", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
 version = "0.3.25"
