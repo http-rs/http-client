@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [5.0.1] - 2020-09-18
+
 ### Fixed
 - Fixed a body stream translation bug in the `hyper_client`.
 
