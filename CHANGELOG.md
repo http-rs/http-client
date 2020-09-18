@@ -7,21 +7,21 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
-## Fixed
+### Fixed
 - Fixed a body stream translation bug in the `hyper_client`.
 
 ## [5.0.0] - 2020-09-18
 
 This release includes an optional backend using [hyper.rs](https://hyper.rs/), and uses [async-trait](https://crates.io/crates/async-trait) for `HttpClient`.
 
-## Added
+### Added
 - `hyper_client` feature, for using [hyper.rs](https://hyper.rs/) as the client backend.
 
-## Changed
+### Changed
 - `HttpClient` now uses [async-trait](https://crates.io/crates/async-trait).
     - This attribute is also re-exported as `http_client::async_trait`.
 
-## Fixed
+### Fixed
 - Fixed WASM compilation.
 - Fixed Isahc (curl) client translation setting duplicate headers incorrectly.
 
@@ -36,13 +36,13 @@ This release allows `HttpClient` to be used as a dynamic Trait object.
 
 This patch updates `http-client` to `http-types 2.0.0` and a new version of `async-h1`.
 
-## Changes
+### Changes
 - http types and async-h1 for 2.0.0 #27
 
 ## [2.0.0] - 2020-04-17
 
-## Added
+### Added
 - Added a new backend: `h1-client` https://github.com/http-rs/http-client/pull/22
 
-## Changed
+### Changed
 - All types are now based from `hyperium/http` to `http-types` https://github.com/http-rs/http-client/pull/22
