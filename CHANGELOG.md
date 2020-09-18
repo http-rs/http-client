@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [5.0.0] - 2020-09-18
+
+This release includes an optional backend using [hyper.rs](https://hyper.rs/), and uses [async-trait](https://crates.io/crates/async-trait) for `HttpClient`.
+
+## Added
+- `hyper_client` feature, for using [hyper.rs](https://hyper.rs/) as the client backend.
+
+## Changed
+- `HttpClient` now uses [async-trait](https://crates.io/crates/async-trait).
+    - This attribute is also re-exported as `http_client::async_trait`.
+
+## Fixed
+- Fixed WASM compilation.
+- Fixed Isahc (curl) client translation setting duplicate headers incorrectly.
+
 ## [4.0.0] - 2020-07-09
 
 This release allows `HttpClient` to be used as a dynamic Trait object.
