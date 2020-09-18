@@ -1,13 +1,12 @@
 [package]
-description = "Types and traits for http clients."
+name = "http-client"
+version = "5.0.1"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/http-rs/http-client"
 documentation = "https://docs.rs/http-client"
+description = "Types and traits for http clients."
 edition = "2018"
 keywords = ["http", "service", "client", "futures", "async"]
-license = "MIT OR Apache-2.0"
-name = "http-client"
-readme = "README.md"
-repository = "https://github.com/http-rs/http-client"
-version = "5.0.0"
 
 [package.metadata.docs.rs]
 features = ["docs"]
