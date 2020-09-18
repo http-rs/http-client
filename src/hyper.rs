@@ -1,11 +1,13 @@
 //! http-client implementation for reqwest
 
 use super::{async_trait, Error, HttpClient, Request, Response};
+use futures_util::stream::TryStreamExt;
 use http_types::headers::{HeaderName, HeaderValue};
 use http_types::StatusCode;
 use hyper::body::HttpBody;
 use hyper_tls::HttpsConnector;
 use std::convert::TryFrom;
+use std::io;
 use std::str::FromStr;
 
 /// Hyper-based HTTP Client.
@@ -100,20 +102,11 @@ struct HttpTypesResponse {
 
 impl HttpTypesResponse {
     async fn try_from(value: hyper::Response<hyper::Body>) -> Result<Self, Error> {
-        let (parts, mut body) = value.into_parts();
+        let (parts, body) = value.into_parts();
 
-        let body = match body.data().await {
-            None => None,
-            Some(Ok(b)) => Some(b),
-            Some(Err(_)) => {
-                return Err(Error::from_str(
-                    StatusCode::BadGateway,
-                    "unable to read HTTP response body",
-                ))
-            }
-        }
-        .map(|b| http_types::Body::from_bytes(b.to_vec()))
-        .unwrap_or(http_types::Body::empty());
+        let size_hint = body.size_hint().upper().map(|s| s as usize);
+        let body = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()));
+        let body = http_types::Body::from_reader(body.into_async_read(), size_hint);
 
         let mut res = Response::new(parts.status);
         res.set_version(Some(parts.version.into()));

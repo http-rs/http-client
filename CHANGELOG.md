@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## Fixed
+- Fixed a body stream translation bug in the `hyper_client`.
+
 ## [5.0.0] - 2020-09-18
 
 This release includes an optional backend using [hyper.rs](https://hyper.rs/), and uses [async-trait](https://crates.io/crates/async-trait) for `HttpClient`.
