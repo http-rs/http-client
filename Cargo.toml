@@ -18,7 +18,7 @@ curl_client = ["isahc", "async-std"]
 default = ["h1_client"]
 docs = ["h1_client"]
 h1_client = ["async-h1", "async-std", "async-native-tls"]
-hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http"]
+hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http", "futures-util"]
 native_client = ["curl_client", "wasm_client"]
 wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures"]
 
@@ -33,6 +33,7 @@ async-native-tls = {version = "0.3.1", optional = true}
 async-std = {version = "1.6.0", default-features = false, optional = true}
 
 # hyper_client
+futures-util = {version = "0.3.5", optional = true}
 hyper = {version = "0.13.6", features = ["tcp"], optional = true}
 hyper-tls = {version = "0.4.3", optional = true}
 
