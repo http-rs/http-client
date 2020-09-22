@@ -6,7 +6,6 @@ use http_types::headers::{HeaderName, HeaderValue};
 use http_types::StatusCode;
 use hyper::body::HttpBody;
 use hyper::client::connect::Connect;
-use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
 use std::convert::TryFrom;
 use std::fmt::Debug;
@@ -14,38 +13,56 @@ use std::io;
 use std::str::FromStr;
 use std::sync::Arc;
 
-/// Hyper-based HTTP Client.
-#[derive(Clone, Debug)]
-pub struct HyperClient<C: Clone + Connect + Debug + Send + Sync + 'static>(Arc<hyper::Client<C>>);
+// Avoid leaking Hyper generics into HttpClient by hiding it behind a dynamic trait object pointer.
+trait HyperClientObject: Debug + Send + Sync + 'static {
+    fn dyn_request(&self, req: hyper::Request<hyper::Body>) -> hyper::client::ResponseFuture;
+}
 
-impl HyperClient<HttpsConnector<HttpConnector>> {
+impl<C: Clone + Connect + Debug + Send + Sync + 'static> HyperClientObject for hyper::Client<C> {
+    fn dyn_request(&self, req: hyper::Request<hyper::Body>) -> hyper::client::ResponseFuture {
+        self.request(req)
+    }
+}
+
+/// Hyper-based HTTP Client.
+#[derive(Debug)]
+pub struct HyperClient(Arc<dyn HyperClientObject>);
+
+impl HyperClient {
     /// Create a new client instance.
     pub fn new() -> Self {
         let https = HttpsConnector::new();
         let client = hyper::Client::builder().build(https);
         Self(Arc::new(client))
     }
-}
 
-impl<C: Clone + Connect + Debug + Send + Sync + 'static> HyperClient<C> {
     /// Create from externally initialized and configured client.
-    pub fn from_client(client: hyper::Client<C>) -> Self {
+    pub fn from_client<C>(client: hyper::Client<C>) -> Self
+    where
+        C: Clone + Connect + Debug + Send + Sync + 'static,
+    {
         Self(Arc::new(client))
     }
 }
 
-impl Default for HyperClient<HttpsConnector<HttpConnector>> {
+impl Clone for HyperClient {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl Default for HyperClient {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl<C: Clone + Connect + Debug + Send + Sync + 'static> HttpClient for HyperClient<C> {
+impl HttpClient for HyperClient {
     async fn send(&self, req: Request) -> Result<Response, Error> {
         let req = HyperHttpRequest::try_from(req).await?.into_inner();
 
-        let response = self.0.request(req).await?;
+        let response = self.0.dyn_request(req).await?;
 
         let res = HttpTypesResponse::try_from(response).await?.into_inner();
         Ok(res)
