@@ -5,46 +5,50 @@ use futures_util::stream::TryStreamExt;
 use http_types::headers::{HeaderName, HeaderValue};
 use http_types::StatusCode;
 use hyper::body::HttpBody;
+use hyper::client::connect::Connect;
+use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
 use std::convert::TryFrom;
+use std::fmt::Debug;
 use std::io;
 use std::str::FromStr;
+use std::sync::Arc;
 
 /// Hyper-based HTTP Client.
-#[derive(Debug)]
-pub struct HyperClient {}
+#[derive(Clone, Debug)]
+pub struct HyperClient<C: Clone + Connect + Debug + Send + Sync + 'static>(Arc<hyper::Client<C>>);
 
-impl HyperClient {
-    /// Create a new client.
-    ///
-    /// There is no specific benefit to reusing instances of this client.
+impl HyperClient<HttpsConnector<HttpConnector>> {
+    /// Create a new client instance.
     pub fn new() -> Self {
-        HyperClient {}
+        let https = HttpsConnector::new();
+        let client = hyper::Client::builder().build(https);
+        Self(Arc::new(client))
+    }
+}
+
+impl<C: Clone + Connect + Debug + Send + Sync + 'static> HyperClient<C> {
+    /// Create from externally initialized and configured client.
+    pub fn from_client(client: hyper::Client<C>) -> Self {
+        Self(Arc::new(client))
+    }
+}
+
+impl Default for HyperClient<HttpsConnector<HttpConnector>> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[async_trait]
-impl HttpClient for HyperClient {
+impl<C: Clone + Connect + Debug + Send + Sync + 'static> HttpClient for HyperClient<C> {
     async fn send(&self, req: Request) -> Result<Response, Error> {
         let req = HyperHttpRequest::try_from(req).await?.into_inner();
-        // UNWRAP: Scheme guaranteed to be "http" or "https" as part of conversion
-        let scheme = req.uri().scheme_str().unwrap();
 
-        let response = match scheme {
-            "http" => {
-                let client = hyper::Client::builder().build_http::<hyper::Body>();
-                client.request(req).await
-            }
-            "https" => {
-                let https = HttpsConnector::new();
-                let client = hyper::Client::builder().build::<_, hyper::Body>(https);
-                client.request(req).await
-            }
-            _ => unreachable!(),
-        }?;
+        let response = self.0.request(req).await?;
 
-        let resp = HttpTypesResponse::try_from(response).await?.into_inner();
-        Ok(resp)
+        let res = HttpTypesResponse::try_from(response).await?.into_inner();
+        Ok(res)
     }
 }
 
