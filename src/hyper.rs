@@ -13,13 +13,15 @@ use std::io;
 use std::str::FromStr;
 use std::sync::Arc;
 
+type HyperRequest = hyper::Request<hyper::Body>;
+
 // Avoid leaking Hyper generics into HttpClient by hiding it behind a dynamic trait object pointer.
 trait HyperClientObject: Debug + Send + Sync + 'static {
     fn dyn_request(&self, req: hyper::Request<hyper::Body>) -> hyper::client::ResponseFuture;
 }
 
 impl<C: Clone + Connect + Debug + Send + Sync + 'static> HyperClientObject for hyper::Client<C> {
-    fn dyn_request(&self, req: hyper::Request<hyper::Body>) -> hyper::client::ResponseFuture {
+    fn dyn_request(&self, req: HyperRequest) -> hyper::client::ResponseFuture {
         self.request(req)
     }
 }
@@ -69,9 +71,7 @@ impl HttpClient for HyperClient {
     }
 }
 
-struct HyperHttpRequest {
-    inner: hyper::Request<hyper::Body>,
-}
+struct HyperHttpRequest(HyperRequest);
 
 impl HyperHttpRequest {
     async fn try_from(mut value: Request) -> Result<Self, Error> {
@@ -109,17 +109,15 @@ impl HyperHttpRequest {
             .uri(uri)
             .body(body)?;
 
-        Ok(HyperHttpRequest { inner: request })
+        Ok(HyperHttpRequest(request))
     }
 
     fn into_inner(self) -> hyper::Request<hyper::Body> {
-        self.inner
+        self.0
     }
 }
 
-struct HttpTypesResponse {
-    inner: Response,
-}
+struct HttpTypesResponse(Response);
 
 impl HttpTypesResponse {
     async fn try_from(value: hyper::Response<hyper::Body>) -> Result<Self, Error> {
@@ -144,11 +142,11 @@ impl HttpTypesResponse {
         }
 
         res.set_body(body);
-        Ok(HttpTypesResponse { inner: res })
+        Ok(HttpTypesResponse(res))
     }
 
     fn into_inner(self) -> Response {
-        self.inner
+        self.0
     }
 }
 
