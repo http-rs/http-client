@@ -11,7 +11,7 @@ use std::io;
 use std::str::FromStr;
 
 /// Hyper-based HTTP Client.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HyperClient {}
 
 impl HyperClient {

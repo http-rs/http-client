@@ -56,7 +56,7 @@ pub use http_types;
 /// though middleware for one of its own requests, and in order to do so should be wrapped in an
 /// `Rc`/`Arc` to enable reference cloning.
 #[async_trait]
-pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + 'static {
+pub trait HttpClient: Clone + std::fmt::Debug + Unpin + Send + Sync + 'static {
     /// Perform a request.
     async fn send(&self, req: Request) -> Result<Response, Error>;
 }
