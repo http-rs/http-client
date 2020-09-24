@@ -22,12 +22,6 @@ impl H1Client {
     }
 }
 
-impl Clone for H1Client {
-    fn clone(&self) -> Self {
-        Self {}
-    }
-}
-
 #[async_trait]
 impl HttpClient for H1Client {
     async fn send(&self, mut req: Request) -> Result<Response, Error> {

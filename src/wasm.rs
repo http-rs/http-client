@@ -22,12 +22,6 @@ impl WasmClient {
     }
 }
 
-impl Clone for WasmClient {
-    fn clone(&self) -> Self {
-        Self { _priv: () }
-    }
-}
-
 impl HttpClient for WasmClient {
     fn send<'a, 'async_trait>(
         &'a self,
