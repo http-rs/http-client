@@ -11,7 +11,6 @@ use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::io;
 use std::str::FromStr;
-use std::sync::Arc;
 
 type HyperRequest = hyper::Request<hyper::Body>;
 
@@ -28,14 +27,14 @@ impl<C: Clone + Connect + Debug + Send + Sync + 'static> HyperClientObject for h
 
 /// Hyper-based HTTP Client.
 #[derive(Debug)]
-pub struct HyperClient(Arc<dyn HyperClientObject>);
+pub struct HyperClient(Box<dyn HyperClientObject>);
 
 impl HyperClient {
     /// Create a new client instance.
     pub fn new() -> Self {
         let https = HttpsConnector::new();
         let client = hyper::Client::builder().build(https);
-        Self(Arc::new(client))
+        Self(Box::new(client))
     }
 
     /// Create from externally initialized and configured client.
@@ -43,13 +42,7 @@ impl HyperClient {
     where
         C: Clone + Connect + Debug + Send + Sync + 'static,
     {
-        Self(Arc::new(client))
-    }
-}
-
-impl Clone for HyperClient {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(Box::new(client))
     }
 }
 
