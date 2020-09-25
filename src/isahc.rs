@@ -4,13 +4,10 @@ use super::{async_trait, Body, Error, HttpClient, Request, Response};
 
 use async_std::io::BufReader;
 use isahc::http;
-use std::sync::Arc;
 
 /// Curl-based HTTP Client.
 #[derive(Debug)]
-pub struct IsahcClient {
-    client: Arc<isahc::HttpClient>,
-}
+pub struct IsahcClient(isahc::HttpClient);
 
 impl Default for IsahcClient {
     fn default() -> Self {
@@ -26,17 +23,7 @@ impl IsahcClient {
 
     /// Create from externally initialized and configured client.
     pub fn from_client(client: isahc::HttpClient) -> Self {
-        Self {
-            client: Arc::new(client),
-        }
-    }
-}
-
-impl Clone for IsahcClient {
-    fn clone(&self) -> Self {
-        Self {
-            client: self.client.clone(),
-        }
+        Self(client)
     }
 }
 
@@ -59,7 +46,7 @@ impl HttpClient for IsahcClient {
         };
 
         let request = builder.body(body).unwrap();
-        let res = self.client.send_async(request).await.map_err(Error::from)?;
+        let res = self.0.send_async(request).await.map_err(Error::from)?;
         let (parts, body) = res.into_parts();
         let len = body.len().map(|len| len as usize);
         let body = Body::from_reader(BufReader::new(body), len);

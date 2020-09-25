@@ -7,7 +7,9 @@ use http_types::StatusCode;
 
 /// Async-h1 based HTTP Client.
 #[derive(Debug)]
-pub struct H1Client {}
+pub struct H1Client {
+    _priv: (),
+}
 
 impl Default for H1Client {
     fn default() -> Self {
@@ -18,13 +20,7 @@ impl Default for H1Client {
 impl H1Client {
     /// Create a new instance.
     pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Clone for H1Client {
-    fn clone(&self) -> Self {
-        Self {}
+        Self { _priv: () }
     }
 }
 
