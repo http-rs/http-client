@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.0.0] - 2020-09-25
+
+This release moves the responsibility of any client sharing to the user.
+
+### Changed
+- `HttpClient` implementations no longer `impl Clone`.
+  - The responsibility for sharing is the user's.
+- `H1Client` can no longer be instatiated via `H1Client {}`.
+  - `::new()` should be used.
+
 ## [5.0.1] - 2020-09-18
 
 ### Fixed
