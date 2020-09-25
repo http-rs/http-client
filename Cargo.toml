@@ -1,6 +1,6 @@
 [package]
 name = "http-client"
-version = "5.0.1"
+version = "6.0.0"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/http-rs/http-client"
 documentation = "https://docs.rs/http-client"
