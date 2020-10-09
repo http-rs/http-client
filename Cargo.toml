@@ -7,7 +7,11 @@ documentation = "https://docs.rs/http-client"
 description = "Types and traits for http clients."
 keywords = ["http", "service", "client", "futures", "async"]
 categories = ["asynchronous", "web-programming", "web-programming::http-client", "web-programming::websocket"]
-authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>", "dignifiedquire <me@dignifiedquire.com>"]
+authors = [
+    "Yoshua Wuyts <yoshuawuyts@gmail.com>", 
+    "dignifiedquire <me@dignifiedquire.com>",
+    "Jeremiah Senkpiel <fishrock123@rocketmail.com>"
+]
 readme = "README.md"
 edition = "2018"
 
