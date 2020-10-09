@@ -5,21 +5,50 @@ use futures_util::stream::TryStreamExt;
 use http_types::headers::{HeaderName, HeaderValue};
 use http_types::StatusCode;
 use hyper::body::HttpBody;
+use hyper::client::connect::Connect;
 use hyper_tls::HttpsConnector;
 use std::convert::TryFrom;
+use std::fmt::Debug;
 use std::io;
 use std::str::FromStr;
 
+type HyperRequest = hyper::Request<hyper::Body>;
+
+// Avoid leaking Hyper generics into HttpClient by hiding it behind a dynamic trait object pointer.
+trait HyperClientObject: Debug + Send + Sync + 'static {
+    fn dyn_request(&self, req: hyper::Request<hyper::Body>) -> hyper::client::ResponseFuture;
+}
+
+impl<C: Clone + Connect + Debug + Send + Sync + 'static> HyperClientObject for hyper::Client<C> {
+    fn dyn_request(&self, req: HyperRequest) -> hyper::client::ResponseFuture {
+        self.request(req)
+    }
+}
+
 /// Hyper-based HTTP Client.
 #[derive(Debug)]
-pub struct HyperClient {}
+pub struct HyperClient(Box<dyn HyperClientObject>);
 
 impl HyperClient {
-    /// Create a new client.
-    ///
-    /// There is no specific benefit to reusing instances of this client.
+    /// Create a new client instance.
     pub fn new() -> Self {
-        HyperClient {}
+        let https = HttpsConnector::new();
+        let client = hyper::Client::builder().build(https);
+        Self(Box::new(client))
+    }
+
+    /// Create from externally initialized and configured client.
+    pub fn from_client<C>(client: hyper::Client<C>) -> Self
+    where
+        C: Clone + Connect + Debug + Send + Sync + 'static,
+    {
+        Self(Box::new(client))
+    }
+}
+
+impl Default for HyperClient {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -27,30 +56,15 @@ impl HyperClient {
 impl HttpClient for HyperClient {
     async fn send(&self, req: Request) -> Result<Response, Error> {
         let req = HyperHttpRequest::try_from(req).await?.into_inner();
-        // UNWRAP: Scheme guaranteed to be "http" or "https" as part of conversion
-        let scheme = req.uri().scheme_str().unwrap();
 
-        let response = match scheme {
-            "http" => {
-                let client = hyper::Client::builder().build_http::<hyper::Body>();
-                client.request(req).await
-            }
-            "https" => {
-                let https = HttpsConnector::new();
-                let client = hyper::Client::builder().build::<_, hyper::Body>(https);
-                client.request(req).await
-            }
-            _ => unreachable!(),
-        }?;
+        let response = self.0.dyn_request(req).await?;
 
-        let resp = HttpTypesResponse::try_from(response).await?.into_inner();
-        Ok(resp)
+        let res = HttpTypesResponse::try_from(response).await?.into_inner();
+        Ok(res)
     }
 }
 
-struct HyperHttpRequest {
-    inner: hyper::Request<hyper::Body>,
-}
+struct HyperHttpRequest(HyperRequest);
 
 impl HyperHttpRequest {
     async fn try_from(mut value: Request) -> Result<Self, Error> {
@@ -88,17 +102,15 @@ impl HyperHttpRequest {
             .uri(uri)
             .body(body)?;
 
-        Ok(HyperHttpRequest { inner: request })
+        Ok(HyperHttpRequest(request))
     }
 
     fn into_inner(self) -> hyper::Request<hyper::Body> {
-        self.inner
+        self.0
     }
 }
 
-struct HttpTypesResponse {
-    inner: Response,
-}
+struct HttpTypesResponse(Response);
 
 impl HttpTypesResponse {
     async fn try_from(value: hyper::Response<hyper::Body>) -> Result<Self, Error> {
@@ -123,11 +135,11 @@ impl HttpTypesResponse {
         }
 
         res.set_body(body);
-        Ok(HttpTypesResponse { inner: res })
+        Ok(HttpTypesResponse(res))
     }
 
     fn into_inner(self) -> Response {
-        self.inner
+        self.0
     }
 }
 
