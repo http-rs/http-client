@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.1.0] - 2020-10-09
+
+This release brings improvements for `HyperClient` (`hyper_client` feature).
+
+### Added
+- `HyperClient` now impls `Default`.
+- `HyperClient::from_client(hyper::Client<C>)`.
+
+### Changed
+- `HyperClient` now re-uses the internal client, allowing connection pooling.
+
 ## [6.0.0] - 2020-09-25
 
 This release moves the responsibility of any client sharing to the user.
