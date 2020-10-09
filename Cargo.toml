@@ -5,8 +5,15 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/http-rs/http-client"
 documentation = "https://docs.rs/http-client"
 description = "Types and traits for http clients."
-edition = "2018"
 keywords = ["http", "service", "client", "futures", "async"]
+categories = ["asynchronous", "web-programming", "web-programming::http-client", "web-programming::websocket"]
+authors = [
+    "Yoshua Wuyts <yoshuawuyts@gmail.com>", 
+    "dignifiedquire <me@dignifiedquire.com>",
+    "Jeremiah Senkpiel <fishrock123@rocketmail.com>"
+]
+readme = "README.md"
+edition = "2018"
 
 [package.metadata.docs.rs]
 features = ["docs"]
