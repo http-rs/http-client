@@ -66,3 +66,10 @@ pub type Body = http_types::Body;
 
 /// Error type.
 pub type Error = http_types::Error;
+
+#[async_trait]
+impl HttpClient for Box<dyn HttpClient> {
+    async fn send(&self, req: Request) -> Result<Response, Error> {
+        self.send(req).await
+    }
+}
