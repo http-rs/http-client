@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.2.0] - 2020-10-26
+
+This release implements `HttpClient` for `Box<dyn HttpClient>`.
+
+## Added
+- `impl HttpClient for Box<dyn HttpClient>`
+
 ## [6.1.0] - 2020-10-09
 
 This release brings improvements for `HyperClient` (`hyper_client` feature).
