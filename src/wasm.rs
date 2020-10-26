@@ -143,25 +143,8 @@ mod fetch {
             let scope = WindowOrWorker::new();
             let request = web_sys::Request::new_with_str_and_init(&self.url, &self.init).unwrap();
             let promise = match scope {
-<<<<<<< HEAD
-
                 WindowOrWorker::Window(window) => window.fetch_with_request(&request),
                 WindowOrWorker::Worker(worker) => worker.fetch_with_request(&request),
-
-                WindowOrWorker::Window(window) => {
-                    window.fetch_with_request(&request)
-                }
-                 WindowOrWorker::Worker(worker) => {
-                    worker.fetch_with_request(&request)
-                }
-
-                WindowOrWorker::Window(window) => window.fetch_with_request(&request),
-                WindowOrWorker::Worker(worker) => worker.fetch_with_request(&request),
-
-=======
-                WindowOrWorker::Window(window) => window.fetch_with_request(&request),
-                WindowOrWorker::Worker(worker) => worker.fetch_with_request(&request),
->>>>>>> 9b5fc00775bd7ad5bab0b4bea7eb9b3f409aa485
             };
             let resp = JsFuture::from(promise).await.unwrap();
             debug_assert!(resp.is_instance_of::<web_sys::Response>());
