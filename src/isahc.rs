@@ -1,17 +1,13 @@
 //! http-client implementation for isahc
 
-use super::{Body, HttpClient, Request, Response};
+use super::{async_trait, Body, Error, HttpClient, Request, Response};
 
 use async_std::io::BufReader;
-use futures::future::BoxFuture;
 use isahc::http;
-use std::sync::Arc;
 
 /// Curl-based HTTP Client.
 #[derive(Debug)]
-pub struct IsahcClient {
-    client: Arc<isahc::HttpClient>,
-}
+pub struct IsahcClient(isahc::HttpClient);
 
 impl Default for IsahcClient {
     fn default() -> Self {
@@ -27,55 +23,39 @@ impl IsahcClient {
 
     /// Create from externally initialized and configured client.
     pub fn from_client(client: isahc::HttpClient) -> Self {
-        Self {
-            client: Arc::new(client),
-        }
+        Self(client)
     }
 }
 
-impl Clone for IsahcClient {
-    fn clone(&self) -> Self {
-        Self {
-            client: self.client.clone(),
-        }
-    }
-}
-
+#[async_trait]
 impl HttpClient for IsahcClient {
-    type Error = isahc::Error;
+    async fn send(&self, mut req: Request) -> Result<Response, Error> {
+        let mut builder = http::Request::builder()
+            .uri(req.url().as_str())
+            .method(http::Method::from_bytes(req.method().to_string().as_bytes()).unwrap());
 
-    fn send(&self, mut req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
-        let client = self.client.clone();
-        Box::pin(async move {
-            let mut builder = http::Request::builder()
-                .uri(req.url().as_str())
-                .method(http::Method::from_bytes(req.method().to_string().as_bytes()).unwrap());
+        for (name, value) in req.iter() {
+            builder = builder.header(name.as_str(), value.as_str());
+        }
 
-            for name in req.header_names() {
-                if let Some(value) = req.header(name) {
-                    builder = builder.header(name.as_str(), value.as_str());
-                }
-            }
+        let body = req.take_body();
 
-            let body = req.take_body();
+        let body = match body.len() {
+            Some(len) => isahc::Body::from_reader_sized(body, len as u64),
+            None => isahc::Body::from_reader(body),
+        };
 
-            let body = match body.len() {
-                Some(len) => isahc::Body::from_reader_sized(body, len as u64),
-                None => isahc::Body::from_reader(body),
-            };
-
-            let request = builder.body(body).unwrap();
-            let res = client.send_async(request).await?;
-            let (parts, body) = res.into_parts();
-            let len = body.len().map(|len| len as usize);
-            let body = Body::from_reader(BufReader::new(body), len);
-            let mut response = http_types::Response::new(parts.status.as_u16());
-            for (name, value) in &parts.headers {
-                response.insert_header(name.as_str(), value.to_str().unwrap());
-            }
-            response.set_body(body);
-            Ok(response)
-        })
+        let request = builder.body(body).unwrap();
+        let res = self.0.send_async(request).await.map_err(Error::from)?;
+        let (parts, body) = res.into_parts();
+        let len = body.len().map(|len| len as usize);
+        let body = Body::from_reader(BufReader::new(body), len);
+        let mut response = http_types::Response::new(parts.status.as_u16());
+        for (name, value) in &parts.headers {
+            response.insert_header(name.as_str(), value.to_str().unwrap());
+        }
+        response.set_body(body);
+        Ok(response)
     }
 }
 

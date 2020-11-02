@@ -1,11 +1,10 @@
 //! http-client implementation for fetch
 
-use super::{Body, HttpClient, Request, Response};
+use super::{http_types::Headers, Body, Error, HttpClient, Request, Response};
 
-use futures::future::BoxFuture;
 use futures::prelude::*;
 
-use std::io;
+use std::convert::TryFrom;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -23,40 +22,41 @@ impl WasmClient {
     }
 }
 
-impl Clone for WasmClient {
-    fn clone(&self) -> Self {
-        Self { _priv: () }
-    }
-}
-
 impl HttpClient for WasmClient {
-    type Error = std::io::Error;
-
-    fn send(&self, req: Request) -> BoxFuture<'static, Result<Response, Self::Error>> {
-        let fut = Box::pin(async move {
-            let url = format!("{}", req.uri());
-            let req = fetch::new(req.method().as_str(), &url);
+    fn send<'a, 'async_trait>(
+        &'a self,
+        req: Request,
+    ) -> Pin<Box<dyn Future<Output = Result<Response, Error>> + Send + 'async_trait>>
+    where
+        'a: 'async_trait,
+        Self: 'async_trait,
+    {
+        InnerFuture::new(async move {
+            let req: fetch::Request = fetch::Request::new(req).await?;
             let mut res = req.send().await?;
 
             let body = res.body_bytes();
-            let mut response = Response::new(Body::from(body));
-            *response.status_mut() = http::StatusCode::from_u16(res.status()).unwrap();
-
+            let mut response =
+                Response::new(http_types::StatusCode::try_from(res.status()).unwrap());
+            response.set_body(Body::from(body));
             for (name, value) in res.headers() {
-                let name: http::header::HeaderName = name.parse().unwrap();
-                response.headers_mut().insert(name, value.parse().unwrap());
+                let name: http_types::headers::HeaderName = name.parse().unwrap();
+                response.insert_header(&name, value);
             }
 
             Ok(response)
-        });
-
-        Box::pin(InnerFuture { fut })
+        })
     }
 }
 
-// This type e
 struct InnerFuture {
-    fut: Pin<Box<dyn Future<Output = Result<Response, io::Error>> + 'static>>,
+    fut: Pin<Box<dyn Future<Output = Result<Response, Error>> + 'static>>,
+}
+
+impl InnerFuture {
+    fn new<F: Future<Output = Result<Response, Error>> + 'static>(fut: F) -> Pin<Box<Self>> {
+        Box::pin(Self { fut: Box::pin(fut) })
+    }
 }
 
 // This is safe because WASM doesn't have threads yet. Once WASM supports threads we should use a
@@ -64,7 +64,7 @@ struct InnerFuture {
 unsafe impl Send for InnerFuture {}
 
 impl Future for InnerFuture {
-    type Output = Result<Response, io::Error>;
+    type Output = Result<Response, Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // This is safe because we're only using this future as a pass-through for the inner
@@ -78,21 +78,24 @@ mod fetch {
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
     use wasm_bindgen::{prelude::*, JsCast};
     use wasm_bindgen_futures::JsFuture;
-    use web_sys::RequestInit;
-    use web_sys::{Window, WorkerGlobalScope};
+    use web_sys::{Window, WorkerGlobalScope, RequestInit};
 
-    use std::io;
+
     use std::iter::{IntoIterator, Iterator};
+    use std::pin::Pin;
+
+    use http_types::StatusCode;
+
+    use crate::Error;
 
     /// Create a new fetch request.
-    pub(crate) fn new(method: impl AsRef<str>, url: impl AsRef<str>) -> Request {
-        Request::new(method, url)
-    }
 
     /// An HTTP Fetch Request.
     pub(crate) struct Request {
-        init: RequestInit,
-        url: String,
+        request: web_sys::Request,
+        /// This field stores the body of the request to ensure it stays allocated as long as the request needs it.
+        #[allow(dead_code)]
+        body_buf: Pin<Vec<u8>>,
     }
 
     enum WindowOrWorker {
@@ -127,18 +130,59 @@ mod fetch {
 
     impl Request {
         /// Create a new instance.
-        pub(crate) fn new(method: impl AsRef<str>, url: impl AsRef<str>) -> Self {
-            let mut init = web_sys::RequestInit::new();
-            init.method(method.as_ref());
-            Self {
-                init,
-                url: url.as_ref().to_owned(),
+        pub(crate) async fn new(mut req: super::Request) -> Result<Self, Error> {
+            // create a fetch request initaliser
+            let mut init = RequestInit::new();
+
+            // set the fetch method
+            init.method(req.method().as_ref());
+
+            let uri = req.url().to_string();
+            let body = req.take_body();
+
+            // convert the body into a uint8 array
+            // needs to be pinned and retained inside the Request because the Uint8Array passed to
+            // js is just a portal into WASM linear memory, and if the underlying data is moved the
+            // js ref will become silently invalid
+            let body_buf = body.into_bytes().await.map_err(|_| {
+                Error::from_str(StatusCode::BadRequest, "could not read body into a buffer")
+            })?;
+            let body_pinned = Pin::new(body_buf);
+            if body_pinned.len() > 0 {
+                let uint_8_array = unsafe { js_sys::Uint8Array::view(&body_pinned) };
+                init.body(Some(&uint_8_array));
             }
+
+            let request = web_sys::Request::new_with_str_and_init(&uri, &init).map_err(|e| {
+                Error::from_str(
+                    StatusCode::BadRequest,
+                    format!("failed to create request: {:?}", e),
+                )
+            })?;
+
+            // add any fetch headers
+            let headers: &mut super::Headers = req.as_mut();
+            for (name, value) in headers.iter() {
+                let name = name.as_str();
+                let value = value.as_str();
+
+                request.headers().set(name, value).map_err(|_| {
+                    Error::from_str(
+                        StatusCode::BadRequest,
+                        format!("could not add header: {} = {}", name, value),
+                    )
+                })?;
+            }
+
+            Ok(Self {
+                request,
+                body_buf: body_pinned,
+            })
         }
 
         /// Submit a request
         // TODO(yoshuawuyts): turn this into a `Future` impl on `Request` instead.
-        pub(crate) async fn send(self) -> Result<Response, io::Error> {
+        pub(crate) async fn send(self) -> Result<Response, Error> {
             // Send the request.
             let scope = WindowOrWorker::new();
             let request = web_sys::Request::new_with_str_and_init(&self.url, &self.init).unwrap();
@@ -147,6 +191,7 @@ mod fetch {
                 WindowOrWorker::Worker(worker) => worker.fetch_with_request(&request),
             };
             let resp = JsFuture::from(promise).await.unwrap();
+
             debug_assert!(resp.is_instance_of::<web_sys::Response>());
             let res: web_sys::Response = resp.dyn_into().unwrap();
 
