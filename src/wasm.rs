@@ -14,7 +14,6 @@ pub struct WasmClient {
     _priv: (),
 }
 
-
 impl WasmClient {
     /// Create a new instance.
     pub fn new() -> Self {
@@ -78,8 +77,7 @@ mod fetch {
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
     use wasm_bindgen::{prelude::*, JsCast};
     use wasm_bindgen_futures::JsFuture;
-    use web_sys::{Window, WorkerGlobalScope, RequestInit};
-
+    use web_sys::{RequestInit, Window, WorkerGlobalScope};
 
     use std::iter::{IntoIterator, Iterator};
     use std::pin::Pin;
