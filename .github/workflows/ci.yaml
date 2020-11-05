@@ -54,11 +54,6 @@ jobs:
     steps:
     - uses: actions/checkout@master
 
-    - name: nightly setup
-      run: |
-        rustup toolchain install nightly
-        rustup default nightly
-
     - name: clippy
       run: cargo clippy --workspace --benches --bins --examples --tests -- -D warnings
 
