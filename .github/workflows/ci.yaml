@@ -34,13 +34,13 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --workspace --benches --bins --examples --tests
+        args: --workspace --benches --bins --examples --tests --features '${{ matrix.backend }}'
 
     - name: check no features
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --no-default-features
+          args: --no-default-features --workspace --benches --bins --examples --tests
 
     - name: tests
       uses: actions-rs/cargo@v1
