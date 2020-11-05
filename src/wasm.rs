@@ -75,9 +75,9 @@ impl Future for InnerFuture {
 
 mod fetch {
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
-    use wasm_bindgen::JsCast;
+    use wasm_bindgen::{prelude::*, JsCast};
     use wasm_bindgen_futures::JsFuture;
-    use web_sys::{window, RequestInit};
+    use web_sys::{RequestInit, Window, WorkerGlobalScope};
 
     use std::iter::{IntoIterator, Iterator};
     use std::pin::Pin;
@@ -85,6 +85,36 @@ mod fetch {
     use http_types::StatusCode;
 
     use crate::Error;
+
+    enum WindowOrWorker {
+        Window(Window),
+        Worker(WorkerGlobalScope),
+    }
+
+    impl WindowOrWorker {
+        fn new() -> Self {
+            #[wasm_bindgen]
+            extern "C" {
+                type Global;
+
+                #[wasm_bindgen(method, getter, js_name = Window)]
+                fn window(this: &Global) -> JsValue;
+
+                #[wasm_bindgen(method, getter, js_name = WorkerGlobalScope)]
+                fn worker(this: &Global) -> JsValue;
+            }
+
+            let global: Global = js_sys::global().unchecked_into();
+
+            if !global.window().is_undefined() {
+                Self::Window(global.unchecked_into())
+            } else if !global.worker().is_undefined() {
+                Self::Worker(global.unchecked_into())
+            } else {
+                panic!("Only supported in a browser or web worker");
+            }
+        }
+    }
 
     /// Create a new fetch request.
 
@@ -152,8 +182,11 @@ mod fetch {
         // TODO(yoshuawuyts): turn this into a `Future` impl on `Request` instead.
         pub(crate) async fn send(self) -> Result<Response, Error> {
             // Send the request.
-            let window = window().expect("A global window object could not be found");
-            let promise = window.fetch_with_request(&self.request);
+            let scope = WindowOrWorker::new();
+            let promise = match scope {
+                WindowOrWorker::Window(window) => window.fetch_with_request(&self.request),
+                WindowOrWorker::Worker(worker) => worker.fetch_with_request(&self.request),
+            };
             let resp = JsFuture::from(promise)
                 .await
                 .map_err(|e| Error::from_str(StatusCode::BadRequest, format!("{:?}", e)))?;
