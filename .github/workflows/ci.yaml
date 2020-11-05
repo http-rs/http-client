@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches:
+      - main
       - staging
       - trying
 
@@ -17,7 +18,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        rust: [stable]
+        rust: [nightly]
+        backend: [curl_client, h1_client, hyper_client]
 
     steps:
     - uses: actions/checkout@master
@@ -32,39 +34,39 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --all --bins --examples
+        args: --workspace --benches --bins --examples --tests
 
-    - name: check unstable
-      uses: actions-rs/cargo@v1
-      with:
-        command:  check
-        args: --all --benches --bins --examples --tests
+    - name: check no features
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --no-default-features
 
     - name: tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --all
+        args: --no-default-features --features '${{ matrix.backend }}'
 
-  check_fmt_and_docs:
-    name: Checking fmt and docs
+  check_fmt_clippy_docs:
+    name: Checking fmt, clippy, and docs
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
 
-    - name: Install nightly toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: nightly
-        override: true
-        components: rustfmt
+    - name: nightly setup
+      run: |
+        rustup toolchain install nightly
+        rustup default nightly
+
+    - name: clippy
+      run: cargo clippy --workspace --benches --bins --examples --tests -- -D warnings
 
     - name: fmt
       run: cargo fmt --all -- --check
 
-    - name: Docs
-      run: cargo doc
+    - name: docs
+      run: cargo doc --no-deps
 
   check_wasm:
     name: Check wasm targets
@@ -84,4 +86,4 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --target wasm32-unknown-unknown --no-default-features --features "native_client,wasm_client"
+        args: --target wasm32-unknown-unknown --no-default-features --features "wasm_client"
