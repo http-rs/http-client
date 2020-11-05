@@ -46,7 +46,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --no-default-features --features '${{ matrix.backend }}'
+        args: --workspace --no-default-features --features '${{ matrix.backend }}'
 
   check_fmt_clippy_docs:
     name: Checking fmt, clippy, and docs
