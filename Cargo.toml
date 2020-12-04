@@ -6,11 +6,16 @@ repository = "https://github.com/http-rs/http-client"
 documentation = "https://docs.rs/http-client"
 description = "Types and traits for http clients."
 keywords = ["http", "service", "client", "futures", "async"]
-categories = ["asynchronous", "web-programming", "web-programming::http-client", "web-programming::websocket"]
+categories = [
+  "asynchronous",
+  "web-programming",
+  "web-programming::http-client",
+  "web-programming::websocket"
+]
 authors = [
-    "Yoshua Wuyts <yoshuawuyts@gmail.com>", 
-    "dignifiedquire <me@dignifiedquire.com>",
-    "Jeremiah Senkpiel <fishrock123@rocketmail.com>"
+  "Yoshua Wuyts <yoshuawuyts@gmail.com>",
+  "dignifiedquire <me@dignifiedquire.com>",
+  "Jeremiah Senkpiel <fishrock123@rocketmail.com>"
 ]
 readme = "README.md"
 edition = "2018"
@@ -26,61 +31,71 @@ h1_client = ["async-h1", "async-std", "async-native-tls"]
 h1_client_rustls = ["async-h1", "async-std", "async-tls"]
 native_client = ["curl_client", "wasm_client"]
 curl_client = ["isahc", "async-std"]
-wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures"]
-hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http", "futures-util"]
+wasm_client = [
+  "js-sys",
+  "web-sys",
+  "wasm-bindgen",
+  "wasm-bindgen-futures",
+  "futures"
+]
+hyper_client = [
+  "hyper",
+  "hyper-tls",
+  "http-types/hyperium_http",
+  "futures-util"
+]
 
 [dependencies]
-async-trait = "0.1.37"
-http-types = "2.3.0"
-log = "0.4.7"
-
+async-trait = "0.1.42"
+http-types = "2.9.0"
+log = "0.4.11"
 # h1_client
-async-h1 = { version = "2.0.0", optional = true }
-async-std = { version = "1.6.0", default-features = false, optional = true }
-async-native-tls = { version = "0.3.1", optional = true }
-
+async-h1 = { version = "2.2.0", optional = true }
+async-std = { version = "1.7.0", default-features = false, optional = true }
+async-native-tls = { version = "0.3.3", optional = true }
 # h1_client_rustls
-async-tls = { version = "0.10.0", optional = true }
-
+async-tls = { version = "0.10.2", optional = true }
 # hyper_client
-hyper = { version = "0.13.6", features = ["tcp"], optional = true }
+hyper = { version = "0.13.9", features = ["tcp"], optional = true }
 hyper-tls = { version = "0.4.3", optional = true }
-futures-util = { version = "0.3.5", optional = true }
+futures-util = { version = "0.3.8", optional = true }
 
 # curl_client
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-isahc = { version = "0.9", optional = true, default-features = false, features = ["http2"]  }
+isahc = { version = "0.9.13", optional = true, default-features = false, features = [
+  "http2"
+] }
 
 # wasm_client
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-js-sys = { version = "0.3.25", optional = true }
-wasm-bindgen = { version = "0.2.48", optional = true }
-wasm-bindgen-futures = { version = "0.4.5", optional = true }
-futures = { version = "0.3.1", optional = true }
+js-sys = { version = "0.3.46", optional = true }
+wasm-bindgen = { version = "0.2.69", optional = true }
+wasm-bindgen-futures = { version = "0.4.19", optional = true }
+futures = { version = "0.3.8", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
-version = "0.3.25"
+version = "0.3.46"
 optional = true
 features = [
-    "AbortSignal",
-    "Headers",
-    "ObserverCallback",
-    "ReferrerPolicy",
-    "Request",
-    "RequestCache",
-    "RequestCredentials",
-    "RequestInit",
-    "RequestMode",
-    "RequestRedirect",
-    "Response",
-    "Window",
-    "WorkerGlobalScope",
+  "AbortSignal",
+  "Headers",
+  "ObserverCallback",
+  "ReferrerPolicy",
+  "Request",
+  "RequestCache",
+  "RequestCredentials",
+  "RequestInit",
+  "RequestMode",
+  "RequestRedirect",
+  "Response",
+  "Window",
+  "WorkerGlobalScope",
 ]
 
 [dev-dependencies]
-async-std = { version = "1.6.0", features = ["unstable", "attributes"] }
+async-std = { version = "1.7.0", features = ["unstable", "attributes"] }
 portpicker = "0.1.0"
-tide = { version = "0.15.0" }
-tide-rustls = { version = "0.1.4" }
-tokio = { version = "0.2.21", features = ["macros"] }
-serde_json = "1.0"
+tide = "0.15.0"
+tide-rustls = "0.1.5"
+tokio = { version = "0.3.5", features = ["macros"] }
+serde_json = "1.0.60"
