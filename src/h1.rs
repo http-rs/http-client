@@ -66,14 +66,29 @@ impl HttpClient for H1Client {
                 let raw_stream = async_std::net::TcpStream::connect(addr).await?;
                 req.set_peer_addr(raw_stream.peer_addr().ok());
                 req.set_local_addr(raw_stream.local_addr().ok());
-
-                let stream = async_native_tls::connect(host, raw_stream).await?;
-
-                client::connect(stream, req).await
+                let tls_stream = add_tls(host, raw_stream).await?;
+                client::connect(tls_stream, req).await
             }
             _ => unreachable!(),
         }
     }
+}
+
+#[cfg(not(feature = "h1_client_rustls"))]
+async fn add_tls(
+    host: String,
+    stream: async_std::net::TcpStream,
+) -> Result<async_native_tls::TlsStream<async_std::net::TcpStream>, async_native_tls::Error> {
+    async_native_tls::connect(host, stream).await
+}
+
+#[cfg(feature = "h1_client_rustls")]
+async fn add_tls(
+    host: String,
+    stream: async_std::net::TcpStream,
+) -> std::io::Result<async_tls::client::TlsStream<async_std::net::TcpStream>> {
+    let connector = async_tls::TlsConnector::default();
+    connector.connect(host, stream).await
 }
 
 #[cfg(test)]
@@ -118,6 +133,20 @@ mod tests {
 
         server.race(client).await?;
 
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn https_functionality() -> Result<()> {
+        task::sleep(Duration::from_millis(100)).await;
+        // Send a POST request to https://httpbin.org/post
+        // The result should be a JSon string similar to what you get with:
+        //  curl -X POST "https://httpbin.org/post" -H "accept: application/json" -H "Content-Type: text/plain;charset=utf-8" -d "hello"
+        let request = build_test_request(Url::parse("https://httpbin.org/post").unwrap());
+        let mut response: Response = H1Client::new().send(request).await?;
+        let json_val: serde_json::value::Value =
+            serde_json::from_str(&response.body_string().await.unwrap())?;
+        assert_eq!(*json_val.get("data").unwrap(), serde_json::json!("hello"));
         Ok(())
     }
 }
