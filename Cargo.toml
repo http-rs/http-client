@@ -22,8 +22,8 @@ rustdoc-args = ["--cfg", "feature=\"docs\""]
 [features]
 default = ["h1_client"]
 docs = ["h1_client", "curl_client", "wasm_client", "hyper_client"]
-h1_client = ["async-h1", "async-std", "async-native-tls"]
-h1_client_rustls = ["async-h1", "async-std", "async-tls"]
+h1_client = ["async-h1", "async-std", "async-native-tls", "deadpool", "futures"]
+h1_client_rustls = ["async-h1", "async-std", "async-tls", "deadpool", "futures"]
 native_client = ["curl_client", "wasm_client"]
 curl_client = ["isahc", "async-std"]
 wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures"]
@@ -38,6 +38,8 @@ log = "0.4.7"
 async-h1 = { version = "2.0.0", optional = true }
 async-std = { version = "1.6.0", default-features = false, optional = true }
 async-native-tls = { version = "0.3.1", optional = true }
+deadpool = { version = "0.6.0", optional = true }
+futures = { version = "0.3.8", optional = true }
 
 # h1_client_rustls
 async-tls = { version = "0.10.0", optional = true }
