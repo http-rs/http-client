@@ -51,8 +51,7 @@ impl AsyncWrite for TlsConnWrapper {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
-        let amt = futures::ready!(Pin::new(&mut *self.conn).poll_write(cx, buf))?;
-        Poll::Ready(Ok(amt))
+        Pin::new(&mut *self.conn).poll_write(cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
@@ -67,7 +66,6 @@ impl AsyncWrite for TlsConnWrapper {
 #[async_trait]
 impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
     async fn create(&self) -> Result<TlsStream<TcpStream>, Error> {
-        log::trace!("Creating new socket to {:?}", self.addr);
         let raw_stream = async_std::net::TcpStream::connect(self.addr).await?;
         let tls_stream = add_tls(&self.host, raw_stream).await?;
         Ok(tls_stream)

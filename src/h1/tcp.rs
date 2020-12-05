@@ -43,8 +43,7 @@ impl AsyncWrite for TcpConnWrapper {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
-        let amt = futures::ready!(Pin::new(&mut *self.conn).poll_write(cx, buf))?;
-        Poll::Ready(Ok(amt))
+        Pin::new(&mut *self.conn).poll_write(cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
