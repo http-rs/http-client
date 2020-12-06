@@ -3,7 +3,7 @@
 use super::{async_trait, Body, Error, HttpClient, Request, Response};
 
 use async_std::io::BufReader;
-use isahc::http;
+use isahc::{http, ResponseExt};
 
 /// Curl-based HTTP Client.
 #[derive(Debug)]
@@ -47,6 +47,7 @@ impl HttpClient for IsahcClient {
 
         let request = builder.body(body).unwrap();
         let res = self.0.send_async(request).await.map_err(Error::from)?;
+        let maybe_metrics = res.metrics().cloned();
         let (parts, body) = res.into_parts();
         let len = body.len().map(|len| len as usize);
         let body = Body::from_reader(BufReader::new(body), len);
@@ -54,6 +55,11 @@ impl HttpClient for IsahcClient {
         for (name, value) in &parts.headers {
             response.insert_header(name.as_str(), value.to_str().unwrap());
         }
+
+        if let Some(metrics) = maybe_metrics {
+            response.ext_mut().insert(metrics);
+        }
+
         response.set_body(body);
         Ok(response)
     }
