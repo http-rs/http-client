@@ -39,7 +39,6 @@ impl HttpClient for IsahcClient {
         }
 
         let body = req.take_body();
-
         let body = match body.len() {
             Some(len) => isahc::Body::from_reader_sized(body, len as u64),
             None => isahc::Body::from_reader(body),
@@ -48,8 +47,7 @@ impl HttpClient for IsahcClient {
         let request = builder.body(body).unwrap();
         let res = self.0.send_async(request).await.map_err(Error::from)?;
         let (parts, body) = res.into_parts();
-        let len = body.len().map(|len| len as usize);
-        let body = Body::from_reader(BufReader::new(body), len);
+        let body = Body::from_reader(BufReader::new(body), None);
         let mut response = http_types::Response::new(parts.status.as_u16());
         for (name, value) in &parts.headers {
             response.insert_header(name.as_str(), value.to_str().unwrap());
