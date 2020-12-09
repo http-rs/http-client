@@ -132,7 +132,10 @@ impl HttpClient for H1Client {
                     self.https_pools.get(&addr).unwrap()
                 };
                 let pool = pool.clone();
-                let stream = pool.get().await.unwrap(); // TODO: remove unwrap
+                let stream = pool
+                    .get()
+                    .await
+                    .map_err(|e| Error::from_str(400, e.to_string()))?;
                 req.set_peer_addr(stream.get_ref().peer_addr().ok());
                 req.set_local_addr(stream.get_ref().local_addr().ok());
 
