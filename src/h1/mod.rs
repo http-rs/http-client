@@ -1,7 +1,7 @@
 //! http-client implementation for async-h1, with connecton pooling ("Keep-Alive").
 
+use std::fmt::Debug;
 use std::net::SocketAddr;
-use std::{fmt::Debug, sync::Arc};
 
 use async_h1::client;
 use async_std::net::TcpStream;
@@ -31,8 +31,8 @@ type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
 
 /// Async-h1 based HTTP Client, with connecton pooling ("Keep-Alive").
 pub struct H1Client {
-    http_pools: Arc<HttpPool>,
-    https_pools: Arc<HttpsPool>,
+    http_pools: HttpPool,
+    https_pools: HttpsPool,
 }
 
 impl Debug for H1Client {
@@ -51,8 +51,8 @@ impl H1Client {
     /// Create a new instance.
     pub fn new() -> Self {
         Self {
-            http_pools: Arc::new(DashMap::new()),
-            https_pools: Arc::new(DashMap::new()),
+            http_pools: DashMap::new(),
+            https_pools: DashMap::new(),
         }
     }
 }
@@ -60,8 +60,6 @@ impl H1Client {
 #[async_trait]
 impl HttpClient for H1Client {
     async fn send(&self, mut req: Request) -> Result<Response, Error> {
-        let http_pools = self.http_pools.clone();
-        let https_pools = self.https_pools.clone();
         req.insert_header("Connection", "keep-alive");
 
         // Insert host
@@ -94,14 +92,14 @@ impl HttpClient for H1Client {
 
         match scheme {
             "http" => {
-                let pool = if let Some(pool) = http_pools.get(&addr) {
+                let pool = if let Some(pool) = self.http_pools.get(&addr) {
                     pool
                 } else {
                     let manager = TcpConnection::new(addr);
                     let pool =
                         Pool::<TcpStream, std::io::Error>::new(manager, MAX_CONCURRENT_CONNECTIONS);
-                    http_pools.insert(addr, pool);
-                    http_pools.get(&addr).unwrap()
+                    self.http_pools.insert(addr, pool);
+                    self.http_pools.get(&addr).unwrap()
                 };
                 let pool = pool.clone();
                 let stream = pool.get().await?;
@@ -115,7 +113,7 @@ impl HttpClient for H1Client {
                 // client::connect(stream, req).await
             }
             "https" => {
-                let pool = if let Some(pool) = https_pools.get(&addr) {
+                let pool = if let Some(pool) = self.https_pools.get(&addr) {
                     pool
                 } else {
                     let manager = TlsConnection::new(host.clone(), addr);
@@ -123,8 +121,8 @@ impl HttpClient for H1Client {
                         manager,
                         MAX_CONCURRENT_CONNECTIONS,
                     );
-                    https_pools.insert(addr, pool);
-                    https_pools.get(&addr).unwrap()
+                    self.https_pools.insert(addr, pool);
+                    self.https_pools.get(&addr).unwrap()
                 };
                 let pool = pool.clone();
                 let stream = pool.get().await.unwrap(); // TODO: remove unwrap
