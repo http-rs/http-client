@@ -106,11 +106,6 @@ impl HttpClient for H1Client {
                 req.set_peer_addr(stream.peer_addr().ok());
                 req.set_local_addr(stream.local_addr().ok());
                 client::connect(TcpConnWrapper::new(stream), req).await
-
-                // let stream = async_std::net::TcpStream::connect(addr).await?;
-                // req.set_peer_addr(stream.peer_addr().ok());
-                // req.set_local_addr(stream.local_addr().ok());
-                // client::connect(stream, req).await
             }
             "https" => {
                 let pool = if let Some(pool) = self.https_pools.get(&addr) {
@@ -130,14 +125,6 @@ impl HttpClient for H1Client {
                 req.set_local_addr(stream.get_ref().local_addr().ok());
 
                 client::connect(TlsConnWrapper::new(stream), req).await
-
-                // let raw_stream = async_std::net::TcpStream::connect(addr).await?;
-                // req.set_peer_addr(raw_stream.peer_addr().ok());
-                // req.set_local_addr(raw_stream.local_addr().ok());
-
-                // let stream = async_native_tls::connect(host, raw_stream).await?;
-
-                // client::connect(stream, req).await
             }
             _ => unreachable!(),
         }
