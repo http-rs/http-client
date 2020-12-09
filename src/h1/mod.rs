@@ -22,9 +22,8 @@ mod tls;
 use tcp::{TcpConnWrapper, TcpConnection};
 use tls::{TlsConnWrapper, TlsConnection};
 
-// TODO: Move this to a parameter. This current number is based on a few
-// random benchmarks and see whatever gave decent perf vs resource use.
-static MAX_CONCURRENT_CONNECTIONS: usize = 50;
+// This number is based on a few random benchmarks and see whatever gave decent perf vs resource use.
+const DEFAULT_MAX_CONCURRENT_CONNECTIONS: usize = 50;
 
 type HttpPool = DashMap<SocketAddr, Pool<TcpStream, std::io::Error>>;
 type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
@@ -33,6 +32,7 @@ type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
 pub struct H1Client {
     http_pools: HttpPool,
     https_pools: HttpsPool,
+    max_concurrent_connections: usize,
 }
 
 impl Debug for H1Client {
@@ -53,6 +53,16 @@ impl H1Client {
         Self {
             http_pools: DashMap::new(),
             https_pools: DashMap::new(),
+            max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
+        }
+    }
+
+    /// Create a new instance.
+    pub fn with_max_connections(max: usize) -> Self {
+        Self {
+            http_pools: DashMap::new(),
+            https_pools: DashMap::new(),
+            max_concurrent_connections: max,
         }
     }
 }
@@ -96,8 +106,10 @@ impl HttpClient for H1Client {
                     pool
                 } else {
                     let manager = TcpConnection::new(addr);
-                    let pool =
-                        Pool::<TcpStream, std::io::Error>::new(manager, MAX_CONCURRENT_CONNECTIONS);
+                    let pool = Pool::<TcpStream, std::io::Error>::new(
+                        manager,
+                        self.max_concurrent_connections,
+                    );
                     self.http_pools.insert(addr, pool);
                     self.http_pools.get(&addr).unwrap()
                 };
@@ -114,7 +126,7 @@ impl HttpClient for H1Client {
                     let manager = TlsConnection::new(host.clone(), addr);
                     let pool = Pool::<TlsStream<TcpStream>, Error>::new(
                         manager,
-                        MAX_CONCURRENT_CONNECTIONS,
+                        self.max_concurrent_connections,
                     );
                     self.https_pools.insert(addr, pool);
                     self.https_pools.get(&addr).unwrap()
