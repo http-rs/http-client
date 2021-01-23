@@ -35,7 +35,7 @@ rustls = ["async-tls"]
 [dependencies]
 async-trait = "0.1.37"
 dashmap = "4.0.2"
-http-types = "2.3.0"
+http-types = { version = "2.10.0", default-features = false, features = ["fs"] }
 log = "0.4.7"
 cfg-if = "1.0.0"
 
