@@ -80,7 +80,7 @@ features = [
 [dev-dependencies]
 async-std = { version = "1.6.0", features = ["unstable", "attributes"] }
 portpicker = "0.1.0"
-tide = { version = "0.15.0" }
+tide = { version = "0.15.0", default-features = false, features = ["h1-server"] }
 tide-rustls = { version = "0.1.4" }
 tokio = { version = "0.2.21", features = ["macros"] }
 serde = "1.0"
