@@ -27,6 +27,7 @@ pub mod wasm;
 pub mod native;
 
 #[cfg_attr(feature = "docs", doc(cfg(h1_client)))]
+#[cfg_attr(feature = "docs", doc(cfg(default)))]
 #[cfg(any(feature = "h1_client", feature = "h1_client_rustls"))]
 pub mod h1;
 
