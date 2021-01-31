@@ -6,6 +6,14 @@ use http_types::{Body, Request, Response, Url};
 use cfg_if::cfg_if;
 
 cfg_if! {
+    if #[cfg(not(feature = "hyper_client"))] {
+        use async_std::test as atest;
+    } else {
+        use tokio::test as atest;
+    }
+}
+
+cfg_if! {
     if #[cfg(feature = "curl_client")] {
         use http_client::isahc::IsahcClient as DefaultClient;
     } else if #[cfg(feature = "wasm_client")] {
@@ -17,7 +25,7 @@ cfg_if! {
     }
 }
 
-#[async_std::test]
+#[atest]
 async fn post_json() -> Result<(), http_types::Error> {
     #[derive(serde::Deserialize, serde::Serialize)]
     struct Cat {
@@ -45,7 +53,7 @@ async fn post_json() -> Result<(), http_types::Error> {
     Ok(())
 }
 
-#[async_std::test]
+#[atest]
 async fn get_json() -> Result<(), http_types::Error> {
     #[derive(serde::Deserialize)]
     struct Message {
@@ -66,7 +74,7 @@ async fn get_json() -> Result<(), http_types::Error> {
     Ok(())
 }
 
-#[async_std::test]
+#[atest]
 async fn get_google() -> Result<(), http_types::Error> {
     let url = "https://www.google.com";
     let req = Request::new(http_types::Method::Get, Url::parse(url).unwrap());
@@ -90,7 +98,7 @@ async fn get_google() -> Result<(), http_types::Error> {
     Ok(())
 }
 
-#[async_std::test]
+#[atest]
 async fn get_github() -> Result<(), http_types::Error> {
     let url = "https://raw.githubusercontent.com/http-rs/surf/6627d9fc15437aea3c0a69e0b620ae7769ea6765/LICENSE-MIT";
     let req = Request::new(http_types::Method::Get, Url::parse(url).unwrap());
