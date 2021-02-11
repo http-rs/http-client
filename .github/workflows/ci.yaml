@@ -17,37 +17,28 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        rust: [stable]
+        backend: [h1_client, hyper_client, curl_client]
 
     steps:
     - uses: actions/checkout@master
 
-    - name: Install ${{ matrix.rust }}
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: ${{ matrix.rust }}
-        override: true
-
     - name: check
-      uses: actions-rs/cargo@v1
-      with:
-        command: check
-        args: --all --bins --examples
-
-    - name: check unstable
-      uses: actions-rs/cargo@v1
-      with:
-        command:  check
-        args: --all --benches --bins --examples --tests
+      run: cargo check --all-targets --workspace --no-default-features --features '${{ matrix.backend }}'
 
     - name: tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --all
+      run: cargo test --all-targets --workspace --no-default-features --features '${{ matrix.backend }}'
 
-  check_fmt_and_docs:
-    name: Checking fmt and docs
+  check_no_features:
+    name: Checking without default features
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+    
+      - name: check
+        run: cargo check --no-default-features
+
+  clippy_fmt_docs:
+    name: Running clippy & fmt & docs
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
@@ -58,13 +49,16 @@ jobs:
         profile: minimal
         toolchain: nightly
         override: true
-        components: rustfmt
+        components: clippy, rustfmt
+
+    - name: clippy 
+      run: cargo clippy --all-targets --workspace --features=docs
 
     - name: fmt
       run: cargo fmt --all -- --check
 
-    - name: Docs
-      run: cargo doc
+    - name: docs
+      run: cargo doc --no-deps --features=docs
 
   check_wasm:
     name: Check wasm targets
