@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        backend: [h1_client, hyper_client, curl_client]
+        backend: ["h1_client,native-tls", hyper_client, curl_client]
 
     steps:
     - uses: actions/checkout@master

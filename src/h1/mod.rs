@@ -9,9 +9,9 @@ use dashmap::DashMap;
 use deadpool::managed::Pool;
 use http_types::StatusCode;
 
-#[cfg(not(feature = "h1_client_rustls"))]
+#[cfg(feature = "native-tls")]
 use async_native_tls::TlsStream;
-#[cfg(feature = "h1_client_rustls")]
+#[cfg(feature = "rustls")]
 use async_tls::client::TlsStream;
 
 use super::{async_trait, Error, HttpClient, Request, Response};
