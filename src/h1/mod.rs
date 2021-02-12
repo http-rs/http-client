@@ -1,14 +1,44 @@
-//! http-client implementation for async-h1.
+//! http-client implementation for async-h1, with connecton pooling ("Keep-Alive").
+
+use std::fmt::Debug;
+use std::net::SocketAddr;
+
+use async_h1::client;
+use async_std::net::TcpStream;
+use dashmap::DashMap;
+use deadpool::managed::Pool;
+use http_types::StatusCode;
+
+#[cfg(not(feature = "h1_client_rustls"))]
+use async_native_tls::TlsStream;
+#[cfg(feature = "h1_client_rustls")]
+use async_tls::client::TlsStream;
 
 use super::{async_trait, Error, HttpClient, Request, Response};
 
-use async_h1::client;
-use http_types::StatusCode;
+mod tcp;
+mod tls;
 
-/// Async-h1 based HTTP Client.
-#[derive(Debug)]
+use tcp::{TcpConnWrapper, TcpConnection};
+use tls::{TlsConnWrapper, TlsConnection};
+
+// This number is based on a few random benchmarks and see whatever gave decent perf vs resource use.
+const DEFAULT_MAX_CONCURRENT_CONNECTIONS: usize = 50;
+
+type HttpPool = DashMap<SocketAddr, Pool<TcpStream, std::io::Error>>;
+type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
+
+/// Async-h1 based HTTP Client, with connecton pooling ("Keep-Alive").
 pub struct H1Client {
-    _priv: (),
+    http_pools: HttpPool,
+    https_pools: HttpsPool,
+    max_concurrent_connections: usize,
+}
+
+impl Debug for H1Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("H1Client")
+    }
 }
 
 impl Default for H1Client {
@@ -20,13 +50,28 @@ impl Default for H1Client {
 impl H1Client {
     /// Create a new instance.
     pub fn new() -> Self {
-        Self { _priv: () }
+        Self {
+            http_pools: DashMap::new(),
+            https_pools: DashMap::new(),
+            max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
+        }
+    }
+
+    /// Create a new instance.
+    pub fn with_max_connections(max: usize) -> Self {
+        Self {
+            http_pools: DashMap::new(),
+            https_pools: DashMap::new(),
+            max_concurrent_connections: max,
+        }
     }
 }
 
 #[async_trait]
 impl HttpClient for H1Client {
     async fn send(&self, mut req: Request) -> Result<Response, Error> {
+        req.insert_header("Connection", "keep-alive");
+
         // Insert host
         let host = req
             .url()
@@ -57,38 +102,56 @@ impl HttpClient for H1Client {
 
         match scheme {
             "http" => {
-                let stream = async_std::net::TcpStream::connect(addr).await?;
+                let pool_ref = if let Some(pool_ref) = self.http_pools.get(&addr) {
+                    pool_ref
+                } else {
+                    let manager = TcpConnection::new(addr);
+                    let pool = Pool::<TcpStream, std::io::Error>::new(
+                        manager,
+                        self.max_concurrent_connections,
+                    );
+                    self.http_pools.insert(addr, pool);
+                    self.http_pools.get(&addr).unwrap()
+                };
+
+                // Deadlocks are prevented by cloning an inner pool Arc and dropping the original locking reference before we await.
+                let pool = pool_ref.clone();
+                std::mem::drop(pool_ref);
+
+                let stream = pool.get().await?;
                 req.set_peer_addr(stream.peer_addr().ok());
                 req.set_local_addr(stream.local_addr().ok());
-                client::connect(stream, req).await
+                client::connect(TcpConnWrapper::new(stream), req).await
             }
             "https" => {
-                let raw_stream = async_std::net::TcpStream::connect(addr).await?;
-                req.set_peer_addr(raw_stream.peer_addr().ok());
-                req.set_local_addr(raw_stream.local_addr().ok());
-                let tls_stream = add_tls(host, raw_stream).await?;
-                client::connect(tls_stream, req).await
+                let pool_ref = if let Some(pool_ref) = self.https_pools.get(&addr) {
+                    pool_ref
+                } else {
+                    let manager = TlsConnection::new(host.clone(), addr);
+                    let pool = Pool::<TlsStream<TcpStream>, Error>::new(
+                        manager,
+                        self.max_concurrent_connections,
+                    );
+                    self.https_pools.insert(addr, pool);
+                    self.https_pools.get(&addr).unwrap()
+                };
+
+                // Deadlocks are prevented by cloning an inner pool Arc and dropping the original locking reference before we await.
+                let pool = pool_ref.clone();
+                std::mem::drop(pool_ref);
+
+                let stream = pool
+                    .get()
+                    .await
+                    .map_err(|e| Error::from_str(400, e.to_string()))?;
+                req.set_peer_addr(stream.get_ref().peer_addr().ok());
+                req.set_local_addr(stream.get_ref().local_addr().ok());
+
+                client::connect(TlsConnWrapper::new(stream), req).await
             }
             _ => unreachable!(),
         }
     }
-}
-
-#[cfg(not(feature = "h1_client_rustls"))]
-async fn add_tls(
-    host: String,
-    stream: async_std::net::TcpStream,
-) -> Result<async_native_tls::TlsStream<async_std::net::TcpStream>, async_native_tls::Error> {
-    async_native_tls::connect(host, stream).await
-}
-
-#[cfg(feature = "h1_client_rustls")]
-async fn add_tls(
-    host: String,
-    stream: async_std::net::TcpStream,
-) -> std::io::Result<async_tls::client::TlsStream<async_std::net::TcpStream>> {
-    let connector = async_tls::TlsConnector::default();
-    connector.connect(host, stream).await
 }
 
 #[cfg(test)]
