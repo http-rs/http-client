@@ -8,9 +8,9 @@ use deadpool::managed::{Manager, Object, RecycleResult};
 use futures::io::{AsyncRead, AsyncWrite};
 use futures::task::{Context, Poll};
 
-#[cfg(not(feature = "h1_client_rustls"))]
+#[cfg(feature = "native-tls")]
 use async_native_tls::TlsStream;
-#[cfg(feature = "h1_client_rustls")]
+#[cfg(feature = "rustls")]
 use async_tls::client::TlsStream;
 
 use crate::Error;
@@ -76,15 +76,15 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
     }
 }
 
-#[cfg(not(feature = "h1_client_rustls"))]
+#[cfg(feature = "native-tls")]
 async fn add_tls(
     host: &str,
     stream: TcpStream,
-) -> Result<async_native_tls::TlsStream<TcpStream>, async_native_tls::Error> {
+) -> Result<TlsStream<TcpStream>, async_native_tls::Error> {
     async_native_tls::connect(host, stream).await
 }
 
-#[cfg(feature = "h1_client_rustls")]
+#[cfg(feature = "rustls")]
 async fn add_tls(host: &str, stream: TcpStream) -> Result<TlsStream<TcpStream>, std::io::Error> {
     let connector = async_tls::TlsConnector::default();
     connector.connect(host, stream).await
