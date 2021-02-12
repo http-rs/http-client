@@ -102,8 +102,8 @@ impl HttpClient for H1Client {
 
         match scheme {
             "http" => {
-                let pool = if let Some(pool) = self.http_pools.get(&addr) {
-                    pool
+                let pool_ref = if let Some(pool_ref) = self.http_pools.get(&addr) {
+                    pool_ref
                 } else {
                     let manager = TcpConnection::new(addr);
                     let pool = Pool::<TcpStream, std::io::Error>::new(
@@ -113,15 +113,19 @@ impl HttpClient for H1Client {
                     self.http_pools.insert(addr, pool);
                     self.http_pools.get(&addr).unwrap()
                 };
-                let pool = pool.clone();
+
+                // Deadlocks are prevented by cloning an inner pool Arc and dropping the original locking reference before we await.
+                let pool = pool_ref.clone();
+                std::mem::drop(pool_ref);
+
                 let stream = pool.get().await?;
                 req.set_peer_addr(stream.peer_addr().ok());
                 req.set_local_addr(stream.local_addr().ok());
                 client::connect(TcpConnWrapper::new(stream), req).await
             }
             "https" => {
-                let pool = if let Some(pool) = self.https_pools.get(&addr) {
-                    pool
+                let pool_ref = if let Some(pool_ref) = self.https_pools.get(&addr) {
+                    pool_ref
                 } else {
                     let manager = TlsConnection::new(host.clone(), addr);
                     let pool = Pool::<TlsStream<TcpStream>, Error>::new(
@@ -131,7 +135,11 @@ impl HttpClient for H1Client {
                     self.https_pools.insert(addr, pool);
                     self.https_pools.get(&addr).unwrap()
                 };
-                let pool = pool.clone();
+
+                // Deadlocks are prevented by cloning an inner pool Arc and dropping the original locking reference before we await.
+                let pool = pool_ref.clone();
+                std::mem::drop(pool_ref);
+
                 let stream = pool
                     .get()
                     .await
