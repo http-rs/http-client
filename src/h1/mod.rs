@@ -37,7 +37,40 @@ pub struct H1Client {
 
 impl Debug for H1Client {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("H1Client")
+        f.debug_struct("H1Client")
+            .field(
+                "http_pools",
+                &self
+                    .http_pools
+                    .iter()
+                    .map(|pool| {
+                        let status = pool.status();
+                        format!(
+                            "Connections: {}, Available: {}, Max: {}",
+                            status.size, status.available, status.max_size
+                        )
+                    })
+                    .collect::<Vec<String>>(),
+            )
+            .field(
+                "https_pools",
+                &self
+                    .http_pools
+                    .iter()
+                    .map(|pool| {
+                        let status = pool.status();
+                        format!(
+                            "Connections: {}, Available: {}, Max: {}",
+                            status.size, status.available, status.max_size
+                        )
+                    })
+                    .collect::<Vec<String>>(),
+            )
+            .field(
+                "max_concurrent_connections",
+                &self.max_concurrent_connections,
+            )
+            .finish()
     }
 }
 
