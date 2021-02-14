@@ -9,34 +9,56 @@ use dashmap::DashMap;
 use deadpool::managed::Pool;
 use http_types::StatusCode;
 
-#[cfg(feature = "native-tls")]
-use async_native_tls::TlsStream;
-#[cfg(feature = "rustls")]
-use async_tls::client::TlsStream;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rustls")] {
+        use async_tls::client::TlsStream;
+    } else if #[cfg(feature = "native-tls")] {
+        use async_native_tls::TlsStream;
+    }
+}
 
 use super::{async_trait, Error, HttpClient, Request, Response};
 
 mod tcp;
+#[cfg(any(feature = "native-tls", feature = "rustls"))]
 mod tls;
 
 use tcp::{TcpConnWrapper, TcpConnection};
+#[cfg(any(feature = "native-tls", feature = "rustls"))]
 use tls::{TlsConnWrapper, TlsConnection};
 
 // This number is based on a few random benchmarks and see whatever gave decent perf vs resource use.
 const DEFAULT_MAX_CONCURRENT_CONNECTIONS: usize = 50;
 
 type HttpPool = DashMap<SocketAddr, Pool<TcpStream, std::io::Error>>;
+#[cfg(any(feature = "native-tls", feature = "rustls"))]
 type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
 
 /// Async-h1 based HTTP Client, with connecton pooling ("Keep-Alive").
 pub struct H1Client {
     http_pools: HttpPool,
+    #[cfg(any(feature = "native-tls", feature = "rustls"))]
     https_pools: HttpsPool,
     max_concurrent_connections: usize,
 }
 
 impl Debug for H1Client {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let https_pools = if cfg!(any(feature = "native-tls", feature = "rustls")) {
+            self.http_pools
+                .iter()
+                .map(|pool| {
+                    let status = pool.status();
+                    format!(
+                        "Connections: {}, Available: {}, Max: {}",
+                        status.size, status.available, status.max_size
+                    )
+                })
+                .collect::<Vec<String>>()
+        } else {
+            vec![]
+        };
+
         f.debug_struct("H1Client")
             .field(
                 "http_pools",
@@ -52,20 +74,7 @@ impl Debug for H1Client {
                     })
                     .collect::<Vec<String>>(),
             )
-            .field(
-                "https_pools",
-                &self
-                    .http_pools
-                    .iter()
-                    .map(|pool| {
-                        let status = pool.status();
-                        format!(
-                            "Connections: {}, Available: {}, Max: {}",
-                            status.size, status.available, status.max_size
-                        )
-                    })
-                    .collect::<Vec<String>>(),
-            )
+            .field("https_pools", &https_pools)
             .field(
                 "max_concurrent_connections",
                 &self.max_concurrent_connections,
@@ -85,6 +94,7 @@ impl H1Client {
     pub fn new() -> Self {
         Self {
             http_pools: DashMap::new(),
+            #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
         }
@@ -94,6 +104,7 @@ impl H1Client {
     pub fn with_max_connections(max: usize) -> Self {
         Self {
             http_pools: DashMap::new(),
+            #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: max,
         }
@@ -106,6 +117,7 @@ impl HttpClient for H1Client {
         req.insert_header("Connection", "keep-alive");
 
         // Insert host
+        #[cfg(any(feature = "native-tls", feature = "rustls"))]
         let host = req
             .url()
             .host_str()
@@ -113,7 +125,9 @@ impl HttpClient for H1Client {
             .to_string();
 
         let scheme = req.url().scheme();
-        if scheme != "http" && scheme != "https" {
+        if scheme != "http"
+            && (scheme != "https" || cfg!(not(any(feature = "native-tls", feature = "rustls"))))
+        {
             return Err(Error::from_str(
                 StatusCode::BadRequest,
                 format!("invalid url scheme '{}'", scheme),
@@ -124,6 +138,7 @@ impl HttpClient for H1Client {
             .url()
             .socket_addrs(|| match req.url().scheme() {
                 "http" => Some(80),
+                #[cfg(any(feature = "native-tls", feature = "rustls"))]
                 "https" => Some(443),
                 _ => None,
             })?
@@ -156,6 +171,7 @@ impl HttpClient for H1Client {
                 req.set_local_addr(stream.local_addr().ok());
                 client::connect(TcpConnWrapper::new(stream), req).await
             }
+            #[cfg(any(feature = "native-tls", feature = "rustls"))]
             "https" => {
                 let pool_ref = if let Some(pool_ref) = self.https_pools.get(&addr) {
                     pool_ref
