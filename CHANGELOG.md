@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.3.1] - 2021-02-15
+
+### Fixed
+- Allow http-client to build & run properly when `h1_client` is enabled without either tls option.
+- Prefer `rustls` if both tls features are enabled.
+
+### Internal
+- More exhaustive CI for feature combinations.
+
 ## [6.3.0] - 2021-02-12
 
 ### Added
