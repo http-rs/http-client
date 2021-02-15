@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-    
+
       - name: check
         run: cargo check --no-default-features
 
@@ -51,7 +51,7 @@ jobs:
         override: true
         components: clippy, rustfmt
 
-    - name: clippy 
+    - name: clippy
       run: cargo clippy --all-targets --workspace --features=docs
 
     - name: fmt
@@ -79,3 +79,18 @@ jobs:
       with:
         command: check
         args: --target wasm32-unknown-unknown --no-default-features --features "native_client,wasm_client"
+
+  check_features:
+    name: Check feature combinations
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+
+    - name: Install cargo-hack
+      run: cargo install cargo-hack
+
+    - name: Check all feature combinations works properly
+      # * `--feature-powerset` - run for the feature powerset of the package
+      # * `--no-dev-deps` - build without dev-dependencies to avoid https://github.com/rust-lang/cargo/issues/4866
+      # * `--skip docs` - skip `docs` feature
+      run: cargo hack check --feature-powerset --no-dev-deps --skip docs

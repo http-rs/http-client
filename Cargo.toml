@@ -37,6 +37,7 @@ async-trait = "0.1.37"
 dashmap = "4.0.2"
 http-types = "2.3.0"
 log = "0.4.7"
+cfg-if = "1.0.0"
 
 # h1_client
 async-h1 = { version = "2.0.0", optional = true }
@@ -91,5 +92,4 @@ tide-rustls = { version = "0.1.4" }
 tokio = { version = "0.2.21", features = ["macros"] }
 serde = "1.0"
 serde_json = "1.0"
-cfg-if = "0.1.10"
 mockito = "0.23.3"

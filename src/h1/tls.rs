@@ -8,10 +8,13 @@ use deadpool::managed::{Manager, Object, RecycleResult};
 use futures::io::{AsyncRead, AsyncWrite};
 use futures::task::{Context, Poll};
 
-#[cfg(feature = "native-tls")]
-use async_native_tls::TlsStream;
-#[cfg(feature = "rustls")]
-use async_tls::client::TlsStream;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rustls")] {
+        use async_tls::client::TlsStream;
+    } else if #[cfg(feature = "native-tls")] {
+        use async_native_tls::TlsStream;
+    }
+}
 
 use crate::Error;
 
@@ -76,16 +79,18 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
     }
 }
 
-#[cfg(feature = "native-tls")]
-async fn add_tls(
-    host: &str,
-    stream: TcpStream,
-) -> Result<TlsStream<TcpStream>, async_native_tls::Error> {
-    async_native_tls::connect(host, stream).await
-}
-
-#[cfg(feature = "rustls")]
-async fn add_tls(host: &str, stream: TcpStream) -> Result<TlsStream<TcpStream>, std::io::Error> {
-    let connector = async_tls::TlsConnector::default();
-    connector.connect(host, stream).await
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rustls")] {
+        async fn add_tls(host: &str, stream: TcpStream) -> Result<TlsStream<TcpStream>, std::io::Error> {
+            let connector = async_tls::TlsConnector::default();
+            connector.connect(host, stream).await
+        }
+    } else if #[cfg(feature = "native-tls")] {
+        async fn add_tls(
+            host: &str,
+            stream: TcpStream,
+        ) -> Result<TlsStream<TcpStream>, async_native_tls::Error> {
+            async_native_tls::connect(host, stream).await
+        }
+    }
 }
