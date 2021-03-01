@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.3.2] - 2021-03-01
+
+_(This was the same thing as 6.3.1 released by git accident.)_
+
 ## [6.3.1] - 2021-02-15
 
 ### Fixed
