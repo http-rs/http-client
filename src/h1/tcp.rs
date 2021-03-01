@@ -58,10 +58,12 @@ impl AsyncWrite for TcpConnWrapper {
 #[async_trait]
 impl Manager<TcpStream, std::io::Error> for TcpConnection {
     async fn create(&self) -> Result<TcpStream, std::io::Error> {
-        Ok(TcpStream::connect(self.addr).await?)
+        TcpStream::connect(self.addr).await
     }
 
-    async fn recycle(&self, _conn: &mut TcpStream) -> RecycleResult<std::io::Error> {
+    async fn recycle(&self, conn: &mut TcpStream) -> RecycleResult<std::io::Error> {
+        let mut buf = [0; 4];
+        conn.peek(&mut buf[..]).await?;
         Ok(())
     }
 }

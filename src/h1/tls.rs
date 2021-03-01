@@ -74,7 +74,12 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
         Ok(tls_stream)
     }
 
-    async fn recycle(&self, _conn: &mut TlsStream<TcpStream>) -> RecycleResult<Error> {
+    async fn recycle(&self, conn: &mut TlsStream<TcpStream>) -> RecycleResult<Error> {
+        let mut buf = [0; 4];
+        conn.get_ref()
+            .peek(&mut buf[..])
+            .await
+            .map_err(Error::from)?;
         Ok(())
     }
 }
