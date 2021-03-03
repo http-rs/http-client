@@ -177,7 +177,7 @@ mod tests {
         req.set_body("hello");
 
         let client = async move {
-            tokio::time::delay_for(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
             let mut resp = client.send(req).await?;
             send.send(()).unwrap();
             assert_eq!(resp.body_string().await?, "hello");
