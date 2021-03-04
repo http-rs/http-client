@@ -84,6 +84,10 @@ features = [
     "WorkerGlobalScope",
 ]
 
+[target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
+version = "0.2.2"
+features = ["js"]
+
 [dev-dependencies]
 async-std = { version = "1.6.0", features = ["unstable", "attributes"] }
 portpicker = "0.1.0"
