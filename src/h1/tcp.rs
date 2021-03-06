@@ -63,7 +63,15 @@ impl Manager<TcpStream, std::io::Error> for TcpConnection {
 
     async fn recycle(&self, conn: &mut TcpStream) -> RecycleResult<std::io::Error> {
         let mut buf = [0; 4];
-        conn.peek(&mut buf[..]).await?;
+        let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+        match Pin::new(conn).poll_read(&mut cx, &mut buf) {
+            Poll::Ready(Err(error)) => Err(error),
+            Poll::Ready(Ok(bytes)) if bytes == 0 => Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "connection appeared to be closed (EoF)",
+            )),
+            _ => Ok(()),
+        }?;
         Ok(())
     }
 }
