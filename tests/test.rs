@@ -135,3 +135,17 @@ SOFTWARE.
 
     Ok(())
 }
+
+#[atest]
+async fn keep_alive() {
+    let _mock_guard = mockito::mock("GET", "/report")
+        .with_status(200)
+        .expect_at_least(2)
+        .create();
+
+    let client = DefaultClient::new();
+    let url: Url = format!("{}/report", mockito::server_url()).parse().unwrap();
+    let req = Request::new(http_types::Method::Get, url);
+    client.send(req.clone()).await.unwrap();
+    client.send(req.clone()).await.unwrap();
+}

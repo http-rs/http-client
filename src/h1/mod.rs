@@ -19,6 +19,8 @@ cfg_if::cfg_if! {
 
 use super::{async_trait, Error, HttpClient, Request, Response};
 
+pub(crate) mod utils;
+
 mod tcp;
 #[cfg(any(feature = "native-tls", feature = "rustls"))]
 mod tls;
