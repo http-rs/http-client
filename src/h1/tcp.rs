@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 
 use async_std::net::TcpStream;
+use async_std::io::ReadExt;
 use async_trait::async_trait;
 use deadpool::managed::{Manager, Object, RecycleResult};
 use futures::io::{AsyncRead, AsyncWrite};
@@ -63,7 +64,10 @@ impl Manager<TcpStream, std::io::Error> for TcpConnection {
 
     async fn recycle(&self, conn: &mut TcpStream) -> RecycleResult<std::io::Error> {
         let mut buf = [0; 4];
-        conn.peek(&mut buf[..]).await?;
+        match futures::poll!((*conn).read(&mut buf)) {
+            Poll::Ready(Err(error)) => Err(error),
+            _ => Ok(()),
+        }?;
         Ok(())
     }
 }

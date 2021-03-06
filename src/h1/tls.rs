@@ -2,6 +2,7 @@ use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
+use async_std::io::ReadExt;
 use async_std::net::TcpStream;
 use async_trait::async_trait;
 use deadpool::managed::{Manager, Object, RecycleResult};
@@ -76,10 +77,10 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
 
     async fn recycle(&self, conn: &mut TlsStream<TcpStream>) -> RecycleResult<Error> {
         let mut buf = [0; 4];
-        conn.get_ref()
-            .peek(&mut buf[..])
-            .await
-            .map_err(Error::from)?;
+        match futures::poll!(conn.get_ref().read(&mut buf)) {
+            Poll::Ready(Err(error)) => Err(error),
+            _ => Ok(()),
+        }.map_err(Error::from)?;
         Ok(())
     }
 }
