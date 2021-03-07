@@ -8,8 +8,6 @@ use deadpool::managed::{Manager, Object, RecycleResult};
 use futures::io::{AsyncRead, AsyncWrite};
 use futures::task::{Context, Poll};
 
-use super::utils::PollRead;
-
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustls")] {
         use async_tls::client::TlsStream;
@@ -78,7 +76,8 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
 
     async fn recycle(&self, conn: &mut TlsStream<TcpStream>) -> RecycleResult<Error> {
         let mut buf = [0; 4];
-        match PollRead::new(conn, &mut buf).await {
+        let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+        match Pin::new(conn).poll_read(&mut cx, &mut buf) {
             Poll::Ready(Err(error)) => Err(error),
             Poll::Ready(Ok(bytes)) if bytes == 0 => Err(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,

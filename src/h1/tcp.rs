@@ -8,8 +8,6 @@ use deadpool::managed::{Manager, Object, RecycleResult};
 use futures::io::{AsyncRead, AsyncWrite};
 use futures::task::{Context, Poll};
 
-use super::utils::PollRead;
-
 #[derive(Clone, Debug)]
 pub(crate) struct TcpConnection {
     addr: SocketAddr,
@@ -65,7 +63,8 @@ impl Manager<TcpStream, std::io::Error> for TcpConnection {
 
     async fn recycle(&self, conn: &mut TcpStream) -> RecycleResult<std::io::Error> {
         let mut buf = [0; 4];
-        match PollRead::new(conn, &mut buf).await {
+        let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+        match Pin::new(conn).poll_read(&mut cx, &mut buf) {
             Poll::Ready(Err(error)) => Err(error),
             Poll::Ready(Ok(bytes)) if bytes == 0 => Err(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
