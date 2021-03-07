@@ -64,18 +64,18 @@ jobs:
     steps:
     - uses: actions/checkout@master
 
-    - name: Install nightly with wasm32-unknown-unknown
+    - name: Install nightly with wasm32-unknown-emscripten
       uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
-        target: wasm32-unknown-unknown
+        target: wasm32-unknown-emscripten
         override: true
 
     - name: check
       uses: actions-rs/cargo@v1
       with:
         command: check
-        args: --target wasm32-unknown-unknown --no-default-features --features "native_client,wasm_client"
+        args: --target wasm32-unknown-emscripten --no-default-features --features "native_client,wasm_client"
 
   check_features:
     name: Check feature combinations
