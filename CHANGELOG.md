@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.3.4] - 2021-03-06
+
+### Fixed
+- `h1_client` connection pools now properly check if connections are still alive before recycling them.
+     - Like, actually properly this time.
+     - There is a test now to ensure closed connections don't cause errors.
+
 ## [6.3.3] - 2021-03-01
 
 ### Fixed
