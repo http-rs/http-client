@@ -6,7 +6,7 @@
 
 #![forbid(future_incompatible, rust_2018_idioms)]
 #![deny(missing_debug_implementations, nonstandard_style)]
-#![warn(missing_docs, missing_doc_code_examples, unreachable_pub)]
+#![warn(missing_docs, rustdoc::missing_doc_code_examples, unreachable_pub)]
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
 // Forbid `unsafe` for the native & curl features, but allow it (for now) under the WASM backend
 #![cfg_attr(
