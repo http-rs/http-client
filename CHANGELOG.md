@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.3.5] - 2021-03-12
+
+### Fixed
+- Multiple headers of the same name are now present with any client backend and not just `h1_client`.
+- Connection when multiple IPs are present for a hostname not function with the `h1_client` backend.
+ 
 ## [6.3.4] - 2021-03-06
 
 ### Fixed
