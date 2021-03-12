@@ -149,3 +149,19 @@ async fn keep_alive() {
     client.send(req.clone()).await.unwrap();
     client.send(req.clone()).await.unwrap();
 }
+
+#[atest]
+async fn fallback_to_ipv4() {
+    let client = DefaultClient::new();
+    let _mock_guard = mock("GET", "/")
+        .with_status(200)
+        .expect_at_least(2)
+        .create();
+
+    // Kips the initial "http://127.0.0.1:" to get only the port number
+    let mock_port = &mockito::server_url()[17..];
+
+    let url = &format!("http://localhost:{}", mock_port);
+    let req = Request::new(http_types::Method::Get, Url::parse(url).unwrap());
+    client.send(req.clone()).await.unwrap();
+}
