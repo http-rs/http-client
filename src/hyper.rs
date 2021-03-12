@@ -130,7 +130,7 @@ impl HttpTypesResponse {
             if let Some(name) = name {
                 let name = name.as_str();
                 let name = HeaderName::from_str(name)?;
-                res.insert_header(name, value);
+                res.append_header(name, value);
             }
         }
 

@@ -40,7 +40,7 @@ impl HttpClient for WasmClient {
             response.set_body(Body::from(body));
             for (name, value) in res.headers() {
                 let name: http_types::headers::HeaderName = name.parse().unwrap();
-                response.insert_header(&name, value);
+                response.append_header(&name, value);
             }
 
             Ok(response)
