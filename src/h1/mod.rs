@@ -19,6 +19,9 @@ cfg_if::cfg_if! {
 
 use super::{async_trait, Error, HttpClient, Request, Response};
 
+// #[cfg(feature = "unstable-config")]
+use super::config::Config;
+
 mod tcp;
 #[cfg(any(feature = "native-tls", feature = "rustls"))]
 mod tls;
@@ -40,6 +43,9 @@ pub struct H1Client {
     #[cfg(any(feature = "native-tls", feature = "rustls"))]
     https_pools: HttpsPool,
     max_concurrent_connections: usize,
+    // #[cfg(feature = "unstable-config")]
+    #[allow(dead_code)]
+    config: Option<Config>,
 }
 
 impl Debug for H1Client {
@@ -97,6 +103,8 @@ impl H1Client {
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
+            // #[cfg(feature = "unstable-config")]
+            config: None,
         }
     }
 
@@ -107,6 +115,8 @@ impl H1Client {
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: max,
+            // #[cfg(feature = "unstable-config")]
+            config: None,
         }
     }
 }
@@ -212,6 +222,21 @@ impl HttpClient for H1Client {
             StatusCode::BadRequest,
             "missing valid address",
         ))
+    }
+}
+
+// #[cfg(feature = "unstable-config")]
+impl<C: Into<Config>> From<C> for H1Client {
+    fn from(config: C) -> Self {
+        let config = config.into();
+
+        Self {
+            http_pools: DashMap::new(),
+            #[cfg(any(feature = "native-tls", feature = "rustls"))]
+            https_pools: DashMap::new(),
+            max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
+            config: Some(config),
+        }
     }
 }
 

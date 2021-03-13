@@ -32,6 +32,8 @@ hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http", "futures-util"
 native-tls = ["async-native-tls"]
 rustls = ["async-tls"]
 
+unstable-config = []
+
 [dependencies]
 async-trait = "0.1.37"
 dashmap = "4.0.2"

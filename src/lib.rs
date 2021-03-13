@@ -14,6 +14,9 @@
     forbid(unsafe_code)
 )]
 
+// #[cfg(feature = "unstable-config")]
+pub mod config;
+
 #[cfg_attr(feature = "docs", doc(cfg(curl_client)))]
 #[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
 pub mod isahc;
