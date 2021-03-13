@@ -44,7 +44,6 @@ pub struct H1Client {
     https_pools: HttpsPool,
     max_concurrent_connections: usize,
     // #[cfg(feature = "unstable-config")]
-    #[allow(dead_code)]
     config: Option<Config>,
 }
 
@@ -118,6 +117,22 @@ impl H1Client {
             // #[cfg(feature = "unstable-config")]
             config: None,
         }
+    }
+
+    // #[cfg(feature = "unstable-config")]
+    /// Override the existing configuration with new configuration.
+    pub fn override_config(&mut self, config: Config) {
+        self.config = Some(config);
+    }
+
+    /// Update the existing configuration with new configuration.
+    pub fn update_config(&mut self, _config: Config) {
+        todo!("Only update orperties which ahve been changed on the config object.")
+    }
+
+    /// Override the existing configuration with new configuration.
+    pub fn config(&self) -> Option<&Config> {
+        self.config.as_ref()
     }
 }
 
