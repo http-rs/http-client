@@ -27,10 +27,12 @@ h1_client = ["async-h1", "async-std", "deadpool", "futures"]
 native_client = ["curl_client", "wasm_client"]
 curl_client = ["isahc", "async-std"]
 wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures"]
-hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http", "futures-util"]
+hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http", "futures-util", "tokio"]
 
 native-tls = ["async-native-tls"]
 rustls = ["async-tls"]
+
+unstable-config = []
 
 [dependencies]
 async-trait = "0.1.37"
@@ -53,6 +55,7 @@ async-tls = { version = "0.10.0", optional = true }
 hyper = { version = "0.13.6", features = ["tcp"], optional = true }
 hyper-tls = { version = "0.4.3", optional = true }
 futures-util = { version = "0.3.5", features = ["io"], optional = true }
+tokio = { version = "0.2", features = ["time"], optional = true }
 
 # curl_client
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

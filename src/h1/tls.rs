@@ -16,16 +16,18 @@ cfg_if::cfg_if! {
     }
 }
 
-use crate::Error;
+use crate::{Config, Error};
 
 #[derive(Clone, Debug)]
 pub(crate) struct TlsConnection {
     host: String,
     addr: SocketAddr,
+    config: Config,
 }
+
 impl TlsConnection {
-    pub(crate) fn new(host: String, addr: SocketAddr) -> Self {
-        Self { host, addr }
+    pub(crate) fn new(host: String, addr: SocketAddr, config: Config) -> Self {
+        Self { host, addr, config }
     }
 }
 
@@ -70,6 +72,10 @@ impl AsyncWrite for TlsConnWrapper {
 impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
     async fn create(&self) -> Result<TlsStream<TcpStream>, Error> {
         let raw_stream = async_std::net::TcpStream::connect(self.addr).await?;
+
+        #[cfg(feature = "unstable-config")]
+        raw_stream.set_nodelay(self.config.no_delay)?;
+
         let tls_stream = add_tls(&self.host, raw_stream).await?;
         Ok(tls_stream)
     }
@@ -77,6 +83,12 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
     async fn recycle(&self, conn: &mut TlsStream<TcpStream>) -> RecycleResult<Error> {
         let mut buf = [0; 4];
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+
+        #[cfg(feature = "unstable-config")]
+        conn.get_ref()
+            .set_nodelay(self.config.no_delay)
+            .map_err(Error::from)?;
+
         match Pin::new(conn).poll_read(&mut cx, &mut buf) {
             Poll::Ready(Err(error)) => Err(error),
             Poll::Ready(Ok(bytes)) if bytes == 0 => Err(std::io::Error::new(
@@ -86,6 +98,7 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
             _ => Ok(()),
         }
         .map_err(Error::from)?;
+
         Ok(())
     }
 }
