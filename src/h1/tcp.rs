@@ -1,4 +1,3 @@
-use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
@@ -10,7 +9,8 @@ use futures::task::{Context, Poll};
 
 use crate::Config;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(feature = "rustls"), derive(std::fmt::Debug))]
 pub(crate) struct TcpConnection {
     addr: SocketAddr,
     config: Config,

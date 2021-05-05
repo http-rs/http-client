@@ -81,11 +81,11 @@ impl Debug for H1Client {
                     .collect::<Vec<String>>(),
             )
             .field("https_pools", &https_pools)
-            .field("config", &self.config)
             .field(
                 "max_concurrent_connections",
                 &self.max_concurrent_connections,
             )
+            .field("config", &self.config)
             .finish()
     }
 }
@@ -175,7 +175,7 @@ impl HttpClient for H1Client {
                         let raw_stream = async_std::net::TcpStream::connect(addr).await?;
                         req.set_peer_addr(raw_stream.peer_addr().ok());
                         req.set_local_addr(raw_stream.local_addr().ok());
-                        let tls_stream = tls::add_tls(&host, raw_stream).await?;
+                        let tls_stream = tls::add_tls(&host, raw_stream, &self.config).await?;
                         let tsl_conn = client::connect(tls_stream, req);
                         return if let Some(timeout) = self.config.timeout {
                             async_std::future::timeout(timeout, tsl_conn).await?

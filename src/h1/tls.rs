@@ -1,4 +1,3 @@
-use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
@@ -18,7 +17,8 @@ cfg_if::cfg_if! {
 
 use crate::{Config, Error};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(feature = "rustls"), derive(std::fmt::Debug))]
 pub(crate) struct TlsConnection {
     host: String,
     addr: SocketAddr,
@@ -76,7 +76,7 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
         #[cfg(feature = "unstable-config")]
         raw_stream.set_nodelay(self.config.tcp_no_delay)?;
 
-        let tls_stream = add_tls(&self.host, raw_stream).await?;
+        let tls_stream = add_tls(&self.host, raw_stream, &self.config).await?;
         Ok(tls_stream)
     }
 
@@ -105,16 +105,32 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustls")] {
-        pub(crate) async fn add_tls(host: &str, stream: TcpStream) -> Result<TlsStream<TcpStream>, std::io::Error> {
+        #[allow(unused_variables)]
+        pub(crate) async fn add_tls(host: &str, stream: TcpStream, config: &Config) -> Result<TlsStream<TcpStream>, std::io::Error> {
+            #[cfg(all(feature = "h1_client", feature = "unstable-config"))]
+            let connector = if let Some(tls_config) = config.tls_config.as_ref().cloned() {
+                tls_config.into()
+            } else {
+                async_tls::TlsConnector::default()
+            };
+            #[cfg(not(feature = "unstable-config"))]
             let connector = async_tls::TlsConnector::default();
+
             connector.connect(host, stream).await
         }
     } else if #[cfg(feature = "native-tls")] {
+        #[allow(unused_variables)]
         pub(crate) async fn add_tls(
             host: &str,
             stream: TcpStream,
+            config: &Config,
         ) -> Result<TlsStream<TcpStream>, async_native_tls::Error> {
-            async_native_tls::connect(host, stream).await
+            #[cfg(feature = "unstable-config")]
+            let connector = config.tls_config.as_ref().cloned().unwrap_or_default();
+            #[cfg(not(feature = "unstable-config"))]
+            let connector = async_native_tls::TlsConnector::new();
+
+            connector.connect(host, stream).await
         }
     }
 }
