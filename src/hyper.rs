@@ -97,6 +97,14 @@ impl HttpClient for HyperClient {
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
+        let connector = HttpsConnector::new();
+        let mut builder = hyper::Client::builder();
+
+        if !config.http_keep_alive {
+            builder.pool_max_idle_per_host(1);
+        }
+
+        self.client = Box::new(builder.build(connector));
         self.config = config;
 
         Ok(())
@@ -115,7 +123,11 @@ impl TryFrom<Config> for HyperClient {
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
         let connector = HttpsConnector::new();
-        let builder = hyper::Client::builder();
+        let mut builder = hyper::Client::builder();
+
+        if !config.http_keep_alive {
+            builder.pool_max_idle_per_host(1);
+        }
 
         Ok(Self {
             client: Box::new(builder.build(connector)),

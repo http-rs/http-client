@@ -82,7 +82,10 @@ impl HttpClient for IsahcClient {
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
         let mut builder = isahc::HttpClient::builder();
 
-        if config.no_delay {
+        if !config.http_keep_alive {
+            builder = builder.connection_cache_size(0);
+        }
+        if config.tcp_no_delay {
             builder = builder.tcp_nodelay();
         }
         if let Some(timeout) = config.timeout {
@@ -109,7 +112,10 @@ impl TryFrom<Config> for IsahcClient {
     fn try_from(config: Config) -> Result<Self, Self::Error> {
         let mut builder = isahc::HttpClient::builder();
 
-        if config.no_delay {
+        if !config.http_keep_alive {
+            builder = builder.connection_cache_size(0);
+        }
+        if config.tcp_no_delay {
             builder = builder.tcp_nodelay();
         }
         if let Some(timeout) = config.timeout {

@@ -74,7 +74,7 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
         let raw_stream = async_std::net::TcpStream::connect(self.addr).await?;
 
         #[cfg(feature = "unstable-config")]
-        raw_stream.set_nodelay(self.config.no_delay)?;
+        raw_stream.set_nodelay(self.config.tcp_no_delay)?;
 
         let tls_stream = add_tls(&self.host, raw_stream).await?;
         Ok(tls_stream)
@@ -86,7 +86,7 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
 
         #[cfg(feature = "unstable-config")]
         conn.get_ref()
-            .set_nodelay(self.config.no_delay)
+            .set_nodelay(self.config.tcp_no_delay)
             .map_err(Error::from)?;
 
         match Pin::new(conn).poll_read(&mut cx, &mut buf) {
@@ -105,12 +105,12 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustls")] {
-        async fn add_tls(host: &str, stream: TcpStream) -> Result<TlsStream<TcpStream>, std::io::Error> {
+        pub(crate) async fn add_tls(host: &str, stream: TcpStream) -> Result<TlsStream<TcpStream>, std::io::Error> {
             let connector = async_tls::TlsConnector::default();
             connector.connect(host, stream).await
         }
     } else if #[cfg(feature = "native-tls")] {
-        async fn add_tls(
+        pub(crate) async fn add_tls(
             host: &str,
             stream: TcpStream,
         ) -> Result<TlsStream<TcpStream>, async_native_tls::Error> {

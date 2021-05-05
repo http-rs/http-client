@@ -156,6 +156,37 @@ impl HttpClient for H1Client {
         for (idx, addr) in addrs.into_iter().enumerate() {
             let has_another_addr = idx != max_addrs_idx;
 
+            #[cfg(feature = "unstable-config")]
+            if !self.config.http_keep_alive {
+                match scheme {
+                    "http" => {
+                        let stream = async_std::net::TcpStream::connect(addr).await?;
+                        req.set_peer_addr(stream.peer_addr().ok());
+                        req.set_local_addr(stream.local_addr().ok());
+                        let tcp_conn = client::connect(stream, req);
+                        return if let Some(timeout) = self.config.timeout {
+                            async_std::future::timeout(timeout, tcp_conn).await?
+                        } else {
+                            tcp_conn.await
+                        };
+                    }
+                    #[cfg(any(feature = "native-tls", feature = "rustls"))]
+                    "https" => {
+                        let raw_stream = async_std::net::TcpStream::connect(addr).await?;
+                        req.set_peer_addr(raw_stream.peer_addr().ok());
+                        req.set_local_addr(raw_stream.local_addr().ok());
+                        let tls_stream = tls::add_tls(&host, raw_stream).await?;
+                        let tsl_conn = client::connect(tls_stream, req);
+                        return if let Some(timeout) = self.config.timeout {
+                            async_std::future::timeout(timeout, tsl_conn).await?
+                        } else {
+                            tsl_conn.await
+                        };
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
             match scheme {
                 "http" => {
                     let pool_ref = if let Some(pool_ref) = self.http_pools.get(&addr) {

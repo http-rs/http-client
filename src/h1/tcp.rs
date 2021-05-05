@@ -65,7 +65,7 @@ impl Manager<TcpStream, std::io::Error> for TcpConnection {
         let tcp_stream = TcpStream::connect(self.addr).await?;
 
         #[cfg(feature = "unstable-config")]
-        tcp_stream.set_nodelay(self.config.no_delay)?;
+        tcp_stream.set_nodelay(self.config.tcp_no_delay)?;
 
         Ok(tcp_stream)
     }
@@ -75,7 +75,7 @@ impl Manager<TcpStream, std::io::Error> for TcpConnection {
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
 
         #[cfg(feature = "unstable-config")]
-        conn.set_nodelay(self.config.no_delay)?;
+        conn.set_nodelay(self.config.tcp_no_delay)?;
 
         match Pin::new(conn).poll_read(&mut cx, &mut buf) {
             Poll::Ready(Err(error)) => Err(error),

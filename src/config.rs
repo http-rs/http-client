@@ -6,10 +6,14 @@ use std::time::Duration;
 #[non_exhaustive]
 #[derive(Clone, Debug)]
 pub struct Config {
+    /// HTTP/1.1 `keep-alive` (connection pooling).
+    ///
+    /// Default: `true`.
+    pub http_keep_alive: bool,
     /// TCP `NO_DELAY`.
     ///
     /// Default: `false`.
-    pub no_delay: bool,
+    pub tcp_no_delay: bool,
     /// Connection timeout duration.
     ///
     /// Default: `Some(Duration::from_secs(60))`.
@@ -20,7 +24,8 @@ impl Config {
     /// Construct new empty config.
     pub fn new() -> Self {
         Self {
-            no_delay: false,
+            http_keep_alive: true,
+            tcp_no_delay: false,
             timeout: Some(Duration::from_secs(60)),
         }
     }
@@ -33,9 +38,15 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Set HTTP/1.1 `keep-alive` (connection pooling).
+    pub fn set_http_keep_alive(mut self, keep_alive: bool) -> Self {
+        self.http_keep_alive = keep_alive;
+        self
+    }
+
     /// Set TCP `NO_DELAY`.
-    pub fn set_no_delay(mut self, no_delay: bool) -> Self {
-        self.no_delay = no_delay;
+    pub fn set_tcp_no_delay(mut self, no_delay: bool) -> Self {
+        self.tcp_no_delay = no_delay;
         self
     }
 
