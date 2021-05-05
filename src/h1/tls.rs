@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use async_std::net::TcpStream;
 use async_trait::async_trait;
@@ -22,11 +23,11 @@ use crate::{Config, Error};
 pub(crate) struct TlsConnection {
     host: String,
     addr: SocketAddr,
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl TlsConnection {
-    pub(crate) fn new(host: String, addr: SocketAddr, config: Config) -> Self {
+    pub(crate) fn new(host: String, addr: SocketAddr, config: Arc<Config>) -> Self {
         Self { host, addr, config }
     }
 }

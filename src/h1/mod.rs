@@ -5,6 +5,7 @@ use std::convert::{Infallible, TryFrom};
 
 use std::fmt::Debug;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use async_h1::client;
 use async_std::net::TcpStream;
@@ -45,7 +46,7 @@ pub struct H1Client {
     #[cfg(any(feature = "native-tls", feature = "rustls"))]
     https_pools: HttpsPool,
     max_concurrent_connections: usize,
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl Debug for H1Client {
@@ -104,7 +105,7 @@ impl H1Client {
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
-            config: Config::default(),
+            config: Arc::new(Config::default()),
         }
     }
 
@@ -115,7 +116,7 @@ impl H1Client {
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: max,
-            config: Config::default(),
+            config: Arc::new(Config::default()),
         }
     }
 }
@@ -276,7 +277,7 @@ impl HttpClient for H1Client {
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
-        self.config = config;
+        self.config = Arc::new(config);
 
         Ok(())
     }
@@ -284,7 +285,7 @@ impl HttpClient for H1Client {
     #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
-        &self.config
+        &*self.config
     }
 }
 
@@ -298,7 +299,7 @@ impl TryFrom<Config> for H1Client {
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
-            config,
+            config: Arc::new(config),
         })
     }
 }

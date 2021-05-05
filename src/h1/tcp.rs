@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use async_std::net::TcpStream;
 use async_trait::async_trait;
@@ -13,11 +14,11 @@ use crate::Config;
 #[cfg_attr(not(feature = "rustls"), derive(std::fmt::Debug))]
 pub(crate) struct TcpConnection {
     addr: SocketAddr,
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl TcpConnection {
-    pub(crate) fn new(addr: SocketAddr, config: Config) -> Self {
+    pub(crate) fn new(addr: SocketAddr, config: Arc<Config>) -> Self {
         Self { addr, config }
     }
 }
