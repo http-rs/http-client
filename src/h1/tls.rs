@@ -1,6 +1,6 @@
-use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use async_std::net::TcpStream;
 use async_trait::async_trait;
@@ -16,16 +16,19 @@ cfg_if::cfg_if! {
     }
 }
 
-use crate::Error;
+use crate::{Config, Error};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(not(feature = "rustls"), derive(std::fmt::Debug))]
 pub(crate) struct TlsConnection {
     host: String,
     addr: SocketAddr,
+    config: Arc<Config>,
 }
+
 impl TlsConnection {
-    pub(crate) fn new(host: String, addr: SocketAddr) -> Self {
-        Self { host, addr }
+    pub(crate) fn new(host: String, addr: SocketAddr, config: Arc<Config>) -> Self {
+        Self { host, addr, config }
     }
 }
 
@@ -70,13 +73,23 @@ impl AsyncWrite for TlsConnWrapper {
 impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
     async fn create(&self) -> Result<TlsStream<TcpStream>, Error> {
         let raw_stream = async_std::net::TcpStream::connect(self.addr).await?;
-        let tls_stream = add_tls(&self.host, raw_stream).await?;
+
+        #[cfg(feature = "unstable-config")]
+        raw_stream.set_nodelay(self.config.tcp_no_delay)?;
+
+        let tls_stream = add_tls(&self.host, raw_stream, &self.config).await?;
         Ok(tls_stream)
     }
 
     async fn recycle(&self, conn: &mut TlsStream<TcpStream>) -> RecycleResult<Error> {
         let mut buf = [0; 4];
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+
+        #[cfg(feature = "unstable-config")]
+        conn.get_ref()
+            .set_nodelay(self.config.tcp_no_delay)
+            .map_err(Error::from)?;
+
         match Pin::new(conn).poll_read(&mut cx, &mut buf) {
             Poll::Ready(Err(error)) => Err(error),
             Poll::Ready(Ok(bytes)) if bytes == 0 => Err(std::io::Error::new(
@@ -86,22 +99,39 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
             _ => Ok(()),
         }
         .map_err(Error::from)?;
+
         Ok(())
     }
 }
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustls")] {
-        async fn add_tls(host: &str, stream: TcpStream) -> Result<TlsStream<TcpStream>, std::io::Error> {
+        #[allow(unused_variables)]
+        pub(crate) async fn add_tls(host: &str, stream: TcpStream, config: &Config) -> Result<TlsStream<TcpStream>, std::io::Error> {
+            #[cfg(all(feature = "h1_client", feature = "unstable-config"))]
+            let connector = if let Some(tls_config) = config.tls_config.as_ref().cloned() {
+                tls_config.into()
+            } else {
+                async_tls::TlsConnector::default()
+            };
+            #[cfg(not(feature = "unstable-config"))]
             let connector = async_tls::TlsConnector::default();
+
             connector.connect(host, stream).await
         }
     } else if #[cfg(feature = "native-tls")] {
-        async fn add_tls(
+        #[allow(unused_variables)]
+        pub(crate) async fn add_tls(
             host: &str,
             stream: TcpStream,
+            config: &Config,
         ) -> Result<TlsStream<TcpStream>, async_native_tls::Error> {
-            async_native_tls::connect(host, stream).await
+            #[cfg(feature = "unstable-config")]
+            let connector = config.tls_config.as_ref().cloned().unwrap_or_default();
+            #[cfg(not(feature = "unstable-config"))]
+            let connector = async_native_tls::TlsConnector::new();
+
+            connector.connect(host, stream).await
         }
     }
 }

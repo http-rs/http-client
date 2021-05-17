@@ -1,6 +1,6 @@
-use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use async_std::net::TcpStream;
 use async_trait::async_trait;
@@ -8,13 +8,18 @@ use deadpool::managed::{Manager, Object, RecycleResult};
 use futures::io::{AsyncRead, AsyncWrite};
 use futures::task::{Context, Poll};
 
-#[derive(Clone, Debug)]
+use crate::Config;
+
+#[derive(Clone)]
+#[cfg_attr(not(feature = "rustls"), derive(std::fmt::Debug))]
 pub(crate) struct TcpConnection {
     addr: SocketAddr,
+    config: Arc<Config>,
 }
+
 impl TcpConnection {
-    pub(crate) fn new(addr: SocketAddr) -> Self {
-        Self { addr }
+    pub(crate) fn new(addr: SocketAddr, config: Arc<Config>) -> Self {
+        Self { addr, config }
     }
 }
 
@@ -58,12 +63,21 @@ impl AsyncWrite for TcpConnWrapper {
 #[async_trait]
 impl Manager<TcpStream, std::io::Error> for TcpConnection {
     async fn create(&self) -> Result<TcpStream, std::io::Error> {
-        TcpStream::connect(self.addr).await
+        let tcp_stream = TcpStream::connect(self.addr).await?;
+
+        #[cfg(feature = "unstable-config")]
+        tcp_stream.set_nodelay(self.config.tcp_no_delay)?;
+
+        Ok(tcp_stream)
     }
 
     async fn recycle(&self, conn: &mut TcpStream) -> RecycleResult<std::io::Error> {
         let mut buf = [0; 4];
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+
+        #[cfg(feature = "unstable-config")]
+        conn.set_nodelay(self.config.tcp_no_delay)?;
+
         match Pin::new(conn).poll_read(&mut cx, &mut buf) {
             Poll::Ready(Err(error)) => Err(error),
             Poll::Ready(Ok(bytes)) if bytes == 0 => Err(std::io::Error::new(

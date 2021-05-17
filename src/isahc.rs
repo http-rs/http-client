@@ -1,13 +1,23 @@
 //! http-client implementation for isahc
 
-use super::{async_trait, Body, Error, HttpClient, Request, Response};
+#[cfg(feature = "unstable-config")]
+use std::convert::TryFrom;
 
 use async_std::io::BufReader;
+#[cfg(feature = "unstable-config")]
+use isahc::config::Configurable;
 use isahc::{http, ResponseExt};
+
+use crate::Config;
+
+use super::{async_trait, Body, Error, HttpClient, Request, Response};
 
 /// Curl-based HTTP Client.
 #[derive(Debug)]
-pub struct IsahcClient(isahc::HttpClient);
+pub struct IsahcClient {
+    client: isahc::HttpClient,
+    config: Config,
+}
 
 impl Default for IsahcClient {
     fn default() -> Self {
@@ -23,7 +33,10 @@ impl IsahcClient {
 
     /// Create from externally initialized and configured client.
     pub fn from_client(client: isahc::HttpClient) -> Self {
-        Self(client)
+        Self {
+            client,
+            config: Config::default(),
+        }
     }
 }
 
@@ -45,7 +58,7 @@ impl HttpClient for IsahcClient {
         };
 
         let request = builder.body(body).unwrap();
-        let res = self.0.send_async(request).await.map_err(Error::from)?;
+        let res = self.client.send_async(request).await.map_err(Error::from)?;
         let maybe_metrics = res.metrics().cloned();
         let (parts, body) = res.into_parts();
         let body = Body::from_reader(BufReader::new(body), None);
@@ -60,6 +73,59 @@ impl HttpClient for IsahcClient {
 
         response.set_body(body);
         Ok(response)
+    }
+
+    #[cfg(feature = "unstable-config")]
+    /// Override the existing configuration with new configuration.
+    ///
+    /// Config options may not impact existing connections.
+    fn set_config(&mut self, config: Config) -> http_types::Result<()> {
+        let mut builder = isahc::HttpClient::builder();
+
+        if !config.http_keep_alive {
+            builder = builder.connection_cache_size(0);
+        }
+        if config.tcp_no_delay {
+            builder = builder.tcp_nodelay();
+        }
+        if let Some(timeout) = config.timeout {
+            builder = builder.timeout(timeout);
+        }
+
+        self.client = builder.build()?;
+        self.config = config;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "unstable-config")]
+    /// Get the current configuration.
+    fn config(&self) -> &Config {
+        &self.config
+    }
+}
+
+#[cfg(feature = "unstable-config")]
+impl TryFrom<Config> for IsahcClient {
+    type Error = isahc::Error;
+
+    fn try_from(config: Config) -> Result<Self, Self::Error> {
+        let mut builder = isahc::HttpClient::builder();
+
+        if !config.http_keep_alive {
+            builder = builder.connection_cache_size(0);
+        }
+        if config.tcp_no_delay {
+            builder = builder.tcp_nodelay();
+        }
+        if let Some(timeout) = config.timeout {
+            builder = builder.timeout(timeout);
+        }
+
+        Ok(Self {
+            client: builder.build()?,
+            config,
+        })
     }
 }
 

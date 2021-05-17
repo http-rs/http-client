@@ -1,7 +1,11 @@
 //! http-client implementation for async-h1, with connecton pooling ("Keep-Alive").
 
+#[cfg(feature = "unstable-config")]
+use std::convert::{Infallible, TryFrom};
+
 use std::fmt::Debug;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use async_h1::client;
 use async_std::net::TcpStream;
@@ -16,6 +20,8 @@ cfg_if::cfg_if! {
         use async_native_tls::TlsStream;
     }
 }
+
+use crate::Config;
 
 use super::{async_trait, Error, HttpClient, Request, Response};
 
@@ -40,6 +46,7 @@ pub struct H1Client {
     #[cfg(any(feature = "native-tls", feature = "rustls"))]
     https_pools: HttpsPool,
     max_concurrent_connections: usize,
+    config: Arc<Config>,
 }
 
 impl Debug for H1Client {
@@ -79,6 +86,7 @@ impl Debug for H1Client {
                 "max_concurrent_connections",
                 &self.max_concurrent_connections,
             )
+            .field("config", &self.config)
             .finish()
     }
 }
@@ -97,6 +105,7 @@ impl H1Client {
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
+            config: Arc::new(Config::default()),
         }
     }
 
@@ -107,6 +116,7 @@ impl H1Client {
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: max,
+            config: Arc::new(Config::default()),
         }
     }
 }
@@ -147,12 +157,43 @@ impl HttpClient for H1Client {
         for (idx, addr) in addrs.into_iter().enumerate() {
             let has_another_addr = idx != max_addrs_idx;
 
+            #[cfg(feature = "unstable-config")]
+            if !self.config.http_keep_alive {
+                match scheme {
+                    "http" => {
+                        let stream = async_std::net::TcpStream::connect(addr).await?;
+                        req.set_peer_addr(stream.peer_addr().ok());
+                        req.set_local_addr(stream.local_addr().ok());
+                        let tcp_conn = client::connect(stream, req);
+                        return if let Some(timeout) = self.config.timeout {
+                            async_std::future::timeout(timeout, tcp_conn).await?
+                        } else {
+                            tcp_conn.await
+                        };
+                    }
+                    #[cfg(any(feature = "native-tls", feature = "rustls"))]
+                    "https" => {
+                        let raw_stream = async_std::net::TcpStream::connect(addr).await?;
+                        req.set_peer_addr(raw_stream.peer_addr().ok());
+                        req.set_local_addr(raw_stream.local_addr().ok());
+                        let tls_stream = tls::add_tls(&host, raw_stream, &self.config).await?;
+                        let tsl_conn = client::connect(tls_stream, req);
+                        return if let Some(timeout) = self.config.timeout {
+                            async_std::future::timeout(timeout, tsl_conn).await?
+                        } else {
+                            tsl_conn.await
+                        };
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
             match scheme {
                 "http" => {
                     let pool_ref = if let Some(pool_ref) = self.http_pools.get(&addr) {
                         pool_ref
                     } else {
-                        let manager = TcpConnection::new(addr);
+                        let manager = TcpConnection::new(addr, self.config.clone());
                         let pool = Pool::<TcpStream, std::io::Error>::new(
                             manager,
                             self.max_concurrent_connections,
@@ -168,19 +209,28 @@ impl HttpClient for H1Client {
                     let stream = match pool.get().await {
                         Ok(s) => s,
                         Err(_) if has_another_addr => continue,
-                        Err(e) => return Err(Error::from_str(400, e.to_string()))?,
+                        Err(e) => return Err(Error::from_str(400, e.to_string())),
                     };
 
                     req.set_peer_addr(stream.peer_addr().ok());
                     req.set_local_addr(stream.local_addr().ok());
-                    return client::connect(TcpConnWrapper::new(stream), req).await;
+
+                    let tcp_conn = client::connect(TcpConnWrapper::new(stream), req);
+                    #[cfg(feature = "unstable-config")]
+                    return if let Some(timeout) = self.config.timeout {
+                        async_std::future::timeout(timeout, tcp_conn).await?
+                    } else {
+                        tcp_conn.await
+                    };
+                    #[cfg(not(feature = "unstable-config"))]
+                    return tcp_conn.await;
                 }
                 #[cfg(any(feature = "native-tls", feature = "rustls"))]
                 "https" => {
                     let pool_ref = if let Some(pool_ref) = self.https_pools.get(&addr) {
                         pool_ref
                     } else {
-                        let manager = TlsConnection::new(host.clone(), addr);
+                        let manager = TlsConnection::new(host.clone(), addr, self.config.clone());
                         let pool = Pool::<TlsStream<TcpStream>, Error>::new(
                             manager,
                             self.max_concurrent_connections,
@@ -196,13 +246,21 @@ impl HttpClient for H1Client {
                     let stream = match pool.get().await {
                         Ok(s) => s,
                         Err(_) if has_another_addr => continue,
-                        Err(e) => return Err(Error::from_str(400, e.to_string()))?,
+                        Err(e) => return Err(Error::from_str(400, e.to_string())),
                     };
 
                     req.set_peer_addr(stream.get_ref().peer_addr().ok());
                     req.set_local_addr(stream.get_ref().local_addr().ok());
 
-                    return client::connect(TlsConnWrapper::new(stream), req).await;
+                    let tls_conn = client::connect(TlsConnWrapper::new(stream), req);
+                    #[cfg(feature = "unstable-config")]
+                    return if let Some(timeout) = self.config.timeout {
+                        async_std::future::timeout(timeout, tls_conn).await?
+                    } else {
+                        tls_conn.await
+                    };
+                    #[cfg(not(feature = "unstable-config"))]
+                    return tls_conn.await;
                 }
                 _ => unreachable!(),
             }
@@ -212,6 +270,37 @@ impl HttpClient for H1Client {
             StatusCode::BadRequest,
             "missing valid address",
         ))
+    }
+
+    #[cfg(feature = "unstable-config")]
+    /// Override the existing configuration with new configuration.
+    ///
+    /// Config options may not impact existing connections.
+    fn set_config(&mut self, config: Config) -> http_types::Result<()> {
+        self.config = Arc::new(config);
+
+        Ok(())
+    }
+
+    #[cfg(feature = "unstable-config")]
+    /// Get the current configuration.
+    fn config(&self) -> &Config {
+        &*self.config
+    }
+}
+
+#[cfg(feature = "unstable-config")]
+impl TryFrom<Config> for H1Client {
+    type Error = Infallible;
+
+    fn try_from(config: Config) -> Result<Self, Self::Error> {
+        Ok(Self {
+            http_pools: DashMap::new(),
+            #[cfg(any(feature = "native-tls", feature = "rustls"))]
+            https_pools: DashMap::new(),
+            max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
+            config: Arc::new(config),
+        })
     }
 }
 
