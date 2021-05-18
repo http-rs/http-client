@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.4.0] - 2021-05-17
+
+### Added
+- Added a new `unstable-config` feature, which exposes runtime configuration via a new `Config` struct.
+
 ## [6.3.5] - 2021-03-12
 
 ### Fixed
