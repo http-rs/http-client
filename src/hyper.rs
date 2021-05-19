@@ -92,6 +92,7 @@ impl HttpClient for HyperClient {
         Ok(res)
     }
 
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
     #[cfg(feature = "unstable-config")]
     /// Override the existing configuration with new configuration.
     ///
@@ -110,6 +111,7 @@ impl HttpClient for HyperClient {
         Ok(())
     }
 
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
     #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
@@ -117,6 +119,7 @@ impl HttpClient for HyperClient {
     }
 }
 
+#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
 #[cfg(feature = "unstable-config")]
 impl TryFrom<Config> for HyperClient {
     type Error = Infallible;
