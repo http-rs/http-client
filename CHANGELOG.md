@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.4.1] - 2021-05-19
+
+### Docs
+- Added `"unstable-config"` to the docs builds.
+
 ## [6.4.0] - 2021-05-17
 
 ### Added
