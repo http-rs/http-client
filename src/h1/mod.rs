@@ -1,4 +1,4 @@
-//! http-client implementation for async-h1, with connecton pooling ("Keep-Alive").
+//! http-client implementation for async-h1, with connection pooling ("Keep-Alive").
 
 #[cfg(feature = "unstable-config")]
 use std::convert::{Infallible, TryFrom};
@@ -272,6 +272,7 @@ impl HttpClient for H1Client {
         ))
     }
 
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
     #[cfg(feature = "unstable-config")]
     /// Override the existing configuration with new configuration.
     ///
@@ -282,6 +283,7 @@ impl HttpClient for H1Client {
         Ok(())
     }
 
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
     #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
@@ -289,6 +291,7 @@ impl HttpClient for H1Client {
     }
 }
 
+#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
 #[cfg(feature = "unstable-config")]
 impl TryFrom<Config> for H1Client {
     type Error = Infallible;

@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use std::time::Duration;
 
 /// Configuration for `HttpClient`s.
+#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
 #[non_exhaustive]
 #[derive(Clone)]
 pub struct Config {
@@ -20,9 +21,11 @@ pub struct Config {
     /// Default: `Some(Duration::from_secs(60))`.
     pub timeout: Option<Duration>,
     /// TLS Configuration (Rustls)
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
     #[cfg(all(feature = "h1_client", feature = "rustls"))]
     pub tls_config: Option<std::sync::Arc<rustls_crate::ClientConfig>>,
     /// TLS Configuration (Native TLS)
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
     #[cfg(all(feature = "h1_client", feature = "native-tls", not(feature = "rustls")))]
     pub tls_config: Option<std::sync::Arc<async_native_tls::TlsConnector>>,
 }
@@ -91,6 +94,7 @@ impl Config {
     }
 
     /// Set TLS Configuration (Rustls)
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
     #[cfg(all(feature = "h1_client", feature = "rustls"))]
     pub fn set_tls_config(
         mut self,
@@ -100,6 +104,7 @@ impl Config {
         self
     }
     /// Set TLS Configuration (Native TLS)
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
     #[cfg(all(feature = "h1_client", feature = "native-tls", not(feature = "rustls")))]
     pub fn set_tls_config(
         mut self,

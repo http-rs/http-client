@@ -75,6 +75,7 @@ impl HttpClient for IsahcClient {
         Ok(response)
     }
 
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
     #[cfg(feature = "unstable-config")]
     /// Override the existing configuration with new configuration.
     ///
@@ -98,6 +99,7 @@ impl HttpClient for IsahcClient {
         Ok(())
     }
 
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
     #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
@@ -105,6 +107,7 @@ impl HttpClient for IsahcClient {
     }
 }
 
+#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
 #[cfg(feature = "unstable-config")]
 impl TryFrom<Config> for IsahcClient {
     type Error = isahc::Error;

@@ -21,24 +21,24 @@ pub use config::Config;
 #[cfg(not(feature = "unstable-config"))]
 type Config = ();
 
-#[cfg_attr(feature = "docs", doc(cfg(curl_client)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "curl_client")))]
 #[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
 pub mod isahc;
 
-#[cfg_attr(feature = "docs", doc(cfg(wasm_client)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "wasm_client")))]
 #[cfg(all(feature = "wasm_client", target_arch = "wasm32"))]
 pub mod wasm;
 
-#[cfg_attr(feature = "docs", doc(cfg(native_client)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "native_client")))]
 #[cfg(any(feature = "curl_client", feature = "wasm_client"))]
 pub mod native;
 
-#[cfg_attr(feature = "docs", doc(cfg(h1_client)))]
-#[cfg_attr(feature = "docs", doc(cfg(default)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "default")))]
 #[cfg(any(feature = "h1_client", feature = "h1_client_rustls"))]
 pub mod h1;
 
-#[cfg_attr(feature = "docs", doc(cfg(hyper_client)))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "hyper_client")))]
 #[cfg(feature = "hyper_client")]
 pub mod hyper;
 
@@ -106,11 +106,13 @@ impl HttpClient for Box<dyn HttpClient> {
         self.as_ref().send(req).await
     }
 
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
     #[cfg(feature = "unstable-config")]
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
         self.as_mut().set_config(config)
     }
 
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
     #[cfg(feature = "unstable-config")]
     fn config(&self) -> &Config {
         self.as_ref().config()
