@@ -1,7 +1,7 @@
 //! http-client implementation for async-h1, with connection pooling ("Keep-Alive").
 
 #[cfg(feature = "unstable-config")]
-use std::convert::{Infallible, TryFrom};
+use std::convert::{Infallible, TryFrom, TryInto};
 
 use std::fmt::Debug;
 use std::net::SocketAddr;
@@ -278,7 +278,16 @@ impl HttpClient for H1Client {
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
-        self.config = Arc::new(config);
+        self.set_shared_config(Arc::new(config))
+    }
+
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
+    #[cfg(feature = "unstable-config")]
+    /// Override the existing configuration with new configuration shared in an `Arc`.
+    ///
+    /// Config options may not impact existing connections.
+    fn set_shared_config(&mut self, config: Arc<Config>) -> http_types::Result<()> {
+        self.config = config;
 
         Ok(())
     }
@@ -297,12 +306,22 @@ impl TryFrom<Config> for H1Client {
     type Error = Infallible;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
+        Arc::new(config).try_into()
+    }
+}
+
+#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
+#[cfg(feature = "unstable-config")]
+impl TryFrom<Arc<Config>> for H1Client {
+    type Error = Infallible;
+
+    fn try_from(config: Arc<Config>) -> Result<Self, Self::Error> {
         Ok(Self {
             http_pools: DashMap::new(),
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
             max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
-            config: Arc::new(config),
+            config,
         })
     }
 }

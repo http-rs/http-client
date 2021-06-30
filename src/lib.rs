@@ -80,6 +80,17 @@ pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + 'static {
     }
 
     #[cfg(feature = "unstable-config")]
+    /// Override the existing configuration with new configuration shared in an `Arc`.
+    ///
+    /// Config options may not impact existing connections.
+    fn set_shared_config(&mut self, _config: std::sync::Arc<Config>) -> http_types::Result<()> {
+        unimplemented!(
+            "{} has not implemented `HttpClient::set_shared_config()`",
+            type_name_of(self)
+        )
+    }
+
+    #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
         unimplemented!(

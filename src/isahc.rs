@@ -1,7 +1,8 @@
 //! http-client implementation for isahc
 
 #[cfg(feature = "unstable-config")]
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
+use std::sync::Arc;
 
 use async_std::io::BufReader;
 #[cfg(feature = "unstable-config")]
@@ -16,7 +17,7 @@ use super::{async_trait, Body, Error, HttpClient, Request, Response};
 #[derive(Debug)]
 pub struct IsahcClient {
     client: isahc::HttpClient,
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl Default for IsahcClient {
@@ -35,7 +36,7 @@ impl IsahcClient {
     pub fn from_client(client: isahc::HttpClient) -> Self {
         Self {
             client,
-            config: Config::default(),
+            config: Arc::new(Config::default()),
         }
     }
 }
@@ -81,6 +82,15 @@ impl HttpClient for IsahcClient {
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
+        self.set_shared_config(Arc::new(config))
+    }
+
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
+    #[cfg(feature = "unstable-config")]
+    /// Override the existing configuration with new configuration shared in an `Arc`.
+    ///
+    /// Config options may not impact existing connections.
+    fn set_shared_config(&mut self, config: Arc<Config>) -> http_types::Result<()> {
         let mut builder = isahc::HttpClient::builder();
 
         if !config.http_keep_alive {
@@ -113,6 +123,16 @@ impl TryFrom<Config> for IsahcClient {
     type Error = isahc::Error;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
+        Arc::new(config).try_into()
+    }
+}
+
+#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
+#[cfg(feature = "unstable-config")]
+impl TryFrom<Arc<Config>> for IsahcClient {
+    type Error = isahc::Error;
+
+    fn try_from(config: Arc<Config>) -> Result<Self, Self::Error> {
         let mut builder = isahc::HttpClient::builder();
 
         if !config.http_keep_alive {

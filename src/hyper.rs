@@ -1,11 +1,12 @@
 //! http-client implementation for reqwest
 
-#[cfg(feature = "unstable-config")]
-use std::convert::Infallible;
 use std::convert::TryFrom;
+#[cfg(feature = "unstable-config")]
+use std::convert::{Infallible, TryInto};
 use std::fmt::Debug;
 use std::io;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use futures_util::stream::TryStreamExt;
 use http_types::headers::{HeaderName, HeaderValue};
@@ -35,7 +36,7 @@ impl<C: Clone + Connect + Debug + Send + Sync + 'static> HyperClientObject for h
 #[derive(Debug)]
 pub struct HyperClient {
     client: Box<dyn HyperClientObject>,
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl HyperClient {
@@ -46,7 +47,7 @@ impl HyperClient {
 
         Self {
             client: Box::new(client),
-            config: Config::default(),
+            config: Arc::new(Config::default()),
         }
     }
 
@@ -57,7 +58,7 @@ impl HyperClient {
     {
         Self {
             client: Box::new(client),
-            config: Config::default(),
+            config: Arc::new(Config::default()),
         }
     }
 }
@@ -98,6 +99,15 @@ impl HttpClient for HyperClient {
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
+        self.set_shared_config(Arc::new(config))
+    }
+
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
+    #[cfg(feature = "unstable-config")]
+    /// Override the existing configuration with new configuration shared in an `Arc`.
+    ///
+    /// Config options may not impact existing connections.
+    fn set_shared_config(&mut self, config: Arc<Config>) -> http_types::Result<()> {
         let connector = HttpsConnector::new();
         let mut builder = hyper::Client::builder();
 
@@ -125,6 +135,16 @@ impl TryFrom<Config> for HyperClient {
     type Error = Infallible;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
+        Arc::new(config).try_into()
+    }
+}
+
+#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
+#[cfg(feature = "unstable-config")]
+impl TryFrom<Arc<Config>> for HyperClient {
+    type Error = Infallible;
+
+    fn try_from(config: Arc<Config>) -> Result<Self, Self::Error> {
         let connector = HttpsConnector::new();
         let mut builder = hyper::Client::builder();
 
