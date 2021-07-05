@@ -9,7 +9,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 /// WebAssembly HTTP Client.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct WasmClient {
     _priv: (),
 }

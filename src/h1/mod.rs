@@ -40,7 +40,8 @@ type HttpPool = DashMap<SocketAddr, Pool<TcpStream, std::io::Error>>;
 #[cfg(any(feature = "native-tls", feature = "rustls"))]
 type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
 
-/// Async-h1 based HTTP Client, with connecton pooling ("Keep-Alive").
+/// Async-h1 based HTTP Client, with connection pooling ("Keep-Alive").
+#[derive(Clone)]
 pub struct H1Client {
     http_pools: HttpPool,
     #[cfg(any(feature = "native-tls", feature = "rustls"))]
