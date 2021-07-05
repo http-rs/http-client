@@ -13,7 +13,7 @@ use crate::Config;
 use super::{async_trait, Body, Error, HttpClient, Request, Response};
 
 /// Curl-based HTTP Client.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct IsahcClient {
     client: isahc::HttpClient,
     config: Config,

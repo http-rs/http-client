@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use std::io;
 use std::str::FromStr;
 
+use dyn_clonable::*;
 use futures_util::stream::TryStreamExt;
 use http_types::headers::{HeaderName, HeaderValue};
 use http_types::StatusCode;
@@ -21,7 +22,8 @@ use super::{async_trait, Error, HttpClient, Request, Response};
 type HyperRequest = hyper::Request<hyper::Body>;
 
 // Avoid leaking Hyper generics into HttpClient by hiding it behind a dynamic trait object pointer.
-trait HyperClientObject: Debug + Send + Sync + 'static {
+#[clonable]
+trait HyperClientObject: Clone + Debug + Send + Sync + 'static {
     fn dyn_request(&self, req: hyper::Request<hyper::Body>) -> hyper::client::ResponseFuture;
 }
 
@@ -32,7 +34,7 @@ impl<C: Clone + Connect + Debug + Send + Sync + 'static> HyperClientObject for h
 }
 
 /// Hyper-based HTTP Client.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HyperClient {
     client: Box<dyn HyperClientObject>,
     config: Config,
