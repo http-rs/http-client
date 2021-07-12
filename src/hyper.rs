@@ -192,7 +192,9 @@ impl HttpTypesResponse {
         let (parts, body) = value.into_parts();
 
         let size_hint = body.size_hint().upper().map(|s| s as usize);
-        let body = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()));
+        let body = TryStreamExt::map_err(body, |err| {
+            io::Error::new(io::ErrorKind::Other, err.to_string())
+        });
         let body = http_types::Body::from_reader(body.into_async_read(), size_hint);
 
         let mut res = Response::new(parts.status);
@@ -252,7 +254,7 @@ mod tests {
         req.set_body("hello");
 
         let client = async move {
-            tokio::time::delay_for(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
             let mut resp = client.send(req).await?;
             send.send(()).unwrap();
             assert_eq!(resp.body_string().await?, "hello");
