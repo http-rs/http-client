@@ -8,18 +8,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_h1::client;
-use async_std::net::TcpStream;
 use dashmap::DashMap;
 use deadpool::managed::Pool;
 use http_types::StatusCode;
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "rustls")] {
-        use async_tls::client::TlsStream;
-    } else if #[cfg(feature = "native-tls")] {
-        use async_native_tls::TlsStream;
-    }
-}
 
 use crate::Config;
 
@@ -36,11 +27,11 @@ use tls::{TlsConnWrapper, TlsConnection};
 // This number is based on a few random benchmarks and see whatever gave decent perf vs resource use.
 const DEFAULT_MAX_CONCURRENT_CONNECTIONS: usize = 50;
 
-type HttpPool = DashMap<SocketAddr, Pool<TcpStream, std::io::Error>>;
+type HttpPool = DashMap<SocketAddr, Pool<TcpConnection>>;
 #[cfg(any(feature = "native-tls", feature = "rustls"))]
-type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
+type HttpsPool = DashMap<SocketAddr, Pool<TlsConnection>>;
 
-/// Async-h1 based HTTP Client, with connecton pooling ("Keep-Alive").
+/// Async-h1 based HTTP Client, with connection pooling ("Keep-Alive").
 pub struct H1Client {
     http_pools: HttpPool,
     #[cfg(any(feature = "native-tls", feature = "rustls"))]
@@ -194,10 +185,8 @@ impl HttpClient for H1Client {
                         pool_ref
                     } else {
                         let manager = TcpConnection::new(addr, self.config.clone());
-                        let pool = Pool::<TcpStream, std::io::Error>::new(
-                            manager,
-                            self.max_concurrent_connections,
-                        );
+                        let pool =
+                            Pool::<TcpConnection>::new(manager, self.max_concurrent_connections);
                         self.http_pools.insert(addr, pool);
                         self.http_pools.get(&addr).unwrap()
                     };
@@ -231,10 +220,8 @@ impl HttpClient for H1Client {
                         pool_ref
                     } else {
                         let manager = TlsConnection::new(host.clone(), addr, self.config.clone());
-                        let pool = Pool::<TlsStream<TcpStream>, Error>::new(
-                            manager,
-                            self.max_concurrent_connections,
-                        );
+                        let pool =
+                            Pool::<TlsConnection>::new(manager, self.max_concurrent_connections);
                         self.https_pools.insert(addr, pool);
                         self.https_pools.get(&addr).unwrap()
                     };
