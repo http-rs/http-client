@@ -53,8 +53,8 @@ impl HttpClient for IsahcClient {
 
         let body = req.take_body();
         let body = match body.len() {
-            Some(len) => isahc::Body::from_reader_sized(body, len as u64),
-            None => isahc::Body::from_reader(body),
+            Some(len) => isahc::AsyncBody::from_reader_sized(body, len as u64),
+            None => isahc::AsyncBody::from_reader(body),
         };
 
         let request = builder.body(body).unwrap();
