@@ -99,6 +99,10 @@ impl H1Client {
     }
 
     /// Create a new instance.
+    #[deprecated(
+        since = "6.5.0",
+        note = "This function is misnamed. Prefer `Config::max_connections_per_host` instead."
+    )]
     pub fn with_max_connections(max: usize) -> Self {
         #[cfg(features = "h1_client")]
         assert!(max > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
