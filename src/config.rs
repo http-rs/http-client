@@ -11,10 +11,14 @@ pub struct Config {
     /// HTTP/1.1 `keep-alive` (connection pooling).
     ///
     /// Default: `true`.
+    ///
+    /// Note: Does nothing on `wasm_client`.
     pub http_keep_alive: bool,
     /// TCP `NO_DELAY`.
     ///
     /// Default: `false`.
+    ///
+    /// Note: Does nothing on `wasm_client`.
     pub tcp_no_delay: bool,
     /// Connection timeout duration.
     ///

@@ -26,7 +26,7 @@ docs = ["h1_client", "curl_client", "wasm_client", "hyper_client", "unstable-con
 h1_client = ["async-h1", "async-std", "deadpool", "futures"]
 native_client = ["curl_client", "wasm_client"]
 curl_client = ["isahc", "async-std"]
-wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures"]
+wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures", "async-std"]
 hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http", "futures-util", "tokio"]
 
 native-tls = ["async-native-tls"]
