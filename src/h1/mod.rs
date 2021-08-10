@@ -1,8 +1,6 @@
 //! http-client implementation for async-h1, with connection pooling ("Keep-Alive").
 
-#[cfg(feature = "unstable-config")]
 use std::convert::{Infallible, TryFrom};
-
 use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -33,19 +31,15 @@ use tcp::{TcpConnWrapper, TcpConnection};
 #[cfg(any(feature = "native-tls", feature = "rustls"))]
 use tls::{TlsConnWrapper, TlsConnection};
 
-// This number is based on a few random benchmarks and see whatever gave decent perf vs resource use.
-const DEFAULT_MAX_CONCURRENT_CONNECTIONS: usize = 50;
-
 type HttpPool = DashMap<SocketAddr, Pool<TcpStream, std::io::Error>>;
 #[cfg(any(feature = "native-tls", feature = "rustls"))]
 type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
 
-/// Async-h1 based HTTP Client, with connecton pooling ("Keep-Alive").
+/// async-h1 based HTTP Client, with connection pooling ("Keep-Alive").
 pub struct H1Client {
     http_pools: HttpPool,
     #[cfg(any(feature = "native-tls", feature = "rustls"))]
     https_pools: HttpsPool,
-    max_concurrent_connections: usize,
     config: Arc<Config>,
 }
 
@@ -82,10 +76,6 @@ impl Debug for H1Client {
                     .collect::<Vec<String>>(),
             )
             .field("https_pools", &https_pools)
-            .field(
-                "max_concurrent_connections",
-                &self.max_concurrent_connections,
-            )
             .field("config", &self.config)
             .finish()
     }
@@ -104,19 +94,25 @@ impl H1Client {
             http_pools: DashMap::new(),
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
-            max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
             config: Arc::new(Config::default()),
         }
     }
 
     /// Create a new instance.
     pub fn with_max_connections(max: usize) -> Self {
+        #[cfg(features = "h1_client")]
+        assert!(max > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
+
+        let config = Config {
+            max_connections_per_host: max,
+            ..Default::default()
+        };
+
         Self {
             http_pools: DashMap::new(),
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
-            max_concurrent_connections: max,
-            config: Arc::new(Config::default()),
+            config: Arc::new(config),
         }
     }
 }
@@ -157,7 +153,6 @@ impl HttpClient for H1Client {
         for (idx, addr) in addrs.into_iter().enumerate() {
             let has_another_addr = idx != max_addrs_idx;
 
-            #[cfg(feature = "unstable-config")]
             if !self.config.http_keep_alive {
                 match scheme {
                     "http" => {
@@ -196,7 +191,7 @@ impl HttpClient for H1Client {
                         let manager = TcpConnection::new(addr, self.config.clone());
                         let pool = Pool::<TcpStream, std::io::Error>::new(
                             manager,
-                            self.max_concurrent_connections,
+                            self.config.max_connections_per_host,
                         );
                         self.http_pools.insert(addr, pool);
                         self.http_pools.get(&addr).unwrap()
@@ -216,14 +211,11 @@ impl HttpClient for H1Client {
                     req.set_local_addr(stream.local_addr().ok());
 
                     let tcp_conn = client::connect(TcpConnWrapper::new(stream), req);
-                    #[cfg(feature = "unstable-config")]
                     return if let Some(timeout) = self.config.timeout {
                         async_std::future::timeout(timeout, tcp_conn).await?
                     } else {
                         tcp_conn.await
                     };
-                    #[cfg(not(feature = "unstable-config"))]
-                    return tcp_conn.await;
                 }
                 #[cfg(any(feature = "native-tls", feature = "rustls"))]
                 "https" => {
@@ -233,7 +225,7 @@ impl HttpClient for H1Client {
                         let manager = TlsConnection::new(host.clone(), addr, self.config.clone());
                         let pool = Pool::<TlsStream<TcpStream>, Error>::new(
                             manager,
-                            self.max_concurrent_connections,
+                            self.config.max_connections_per_host,
                         );
                         self.https_pools.insert(addr, pool);
                         self.https_pools.get(&addr).unwrap()
@@ -253,14 +245,11 @@ impl HttpClient for H1Client {
                     req.set_local_addr(stream.get_ref().local_addr().ok());
 
                     let tls_conn = client::connect(TlsConnWrapper::new(stream), req);
-                    #[cfg(feature = "unstable-config")]
                     return if let Some(timeout) = self.config.timeout {
                         async_std::future::timeout(timeout, tls_conn).await?
                     } else {
                         tls_conn.await
                     };
-                    #[cfg(not(feature = "unstable-config"))]
-                    return tls_conn.await;
                 }
                 _ => unreachable!(),
             }
@@ -272,36 +261,35 @@ impl HttpClient for H1Client {
         ))
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     /// Override the existing configuration with new configuration.
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
+        #[cfg(features = "h1_client")]
+        assert!(config.max_connections_per_host > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
+
         self.config = Arc::new(config);
 
         Ok(())
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
         &*self.config
     }
 }
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-#[cfg(feature = "unstable-config")]
 impl TryFrom<Config> for H1Client {
     type Error = Infallible;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
+        #[cfg(features = "h1_client")]
+        assert!(config.max_connections_per_host > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
+
         Ok(Self {
             http_pools: DashMap::new(),
             #[cfg(any(feature = "native-tls", feature = "rustls"))]
             https_pools: DashMap::new(),
-            max_concurrent_connections: DEFAULT_MAX_CONCURRENT_CONNECTIONS,
             config: Arc::new(config),
         })
     }

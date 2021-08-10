@@ -1,9 +1,6 @@
 //! http-client implementation for fetch
 
-#[cfg(feature = "unstable-config")]
-use std::convert::Infallible;
-
-use std::convert::TryFrom;
+use std::convert::{Infallible, TryFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -22,7 +19,9 @@ pub struct WasmClient {
 impl WasmClient {
     /// Create a new instance.
     pub fn new() -> Self {
-        Self { config: Config::default() }
+        Self {
+            config: Config::default(),
+        }
     }
 }
 
@@ -46,14 +45,11 @@ impl HttpClient for WasmClient {
         InnerFuture::new(async move {
             let req: fetch::Request = fetch::Request::new(req).await?;
             let conn = req.send();
-            #[cfg(feature = "unstable-config")]
             let mut res = if let Some(timeout) = config.timeout {
                 async_std::future::timeout(timeout, conn).await??
             } else {
                 conn.await?
             };
-            #[cfg(not(feature = "unstable-config"))]
-            let mut res = conn.await?;
 
             let body = res.body_bytes();
             let mut response =
@@ -68,8 +64,6 @@ impl HttpClient for WasmClient {
         })
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     /// Override the existing configuration with new configuration.
     ///
     /// Config options may not impact existing connections.
@@ -79,23 +73,17 @@ impl HttpClient for WasmClient {
         Ok(())
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
         &self.config
     }
 }
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-#[cfg(feature = "unstable-config")]
 impl TryFrom<Config> for WasmClient {
     type Error = Infallible;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
-        Ok(Self {
-            config,
-        })
+        Ok(Self { config })
     }
 }
 

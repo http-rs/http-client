@@ -1,10 +1,8 @@
 //! http-client implementation for isahc
 
-#[cfg(feature = "unstable-config")]
 use std::convert::TryFrom;
 
 use async_std::io::BufReader;
-#[cfg(feature = "unstable-config")]
 use isahc::config::Configurable;
 use isahc::{http, ResponseExt};
 
@@ -75,13 +73,12 @@ impl HttpClient for IsahcClient {
         Ok(response)
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     /// Override the existing configuration with new configuration.
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
-        let mut builder = isahc::HttpClient::builder();
+        let mut builder =
+            isahc::HttpClient::builder().max_connections_per_host(config.max_connections_per_host);
 
         if !config.http_keep_alive {
             builder = builder.connection_cache_size(0);
@@ -99,16 +96,12 @@ impl HttpClient for IsahcClient {
         Ok(())
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
         &self.config
     }
 }
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-#[cfg(feature = "unstable-config")]
 impl TryFrom<Config> for IsahcClient {
     type Error = isahc::Error;
 

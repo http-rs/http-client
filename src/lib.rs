@@ -14,12 +14,8 @@
     forbid(unsafe_code)
 )]
 
-#[cfg(feature = "unstable-config")]
 mod config;
-#[cfg(feature = "unstable-config")]
 pub use config::Config;
-#[cfg(not(feature = "unstable-config"))]
-type Config = ();
 
 #[cfg_attr(feature = "docs", doc(cfg(feature = "curl_client")))]
 #[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
@@ -68,7 +64,6 @@ pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + 'static {
     /// Perform a request.
     async fn send(&self, req: Request) -> Result<Response, Error>;
 
-    #[cfg(feature = "unstable-config")]
     /// Override the existing configuration with new configuration.
     ///
     /// Config options may not impact existing connections.
@@ -79,7 +74,6 @@ pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + 'static {
         )
     }
 
-    #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
         unimplemented!(
@@ -89,7 +83,6 @@ pub trait HttpClient: std::fmt::Debug + Unpin + Send + Sync + 'static {
     }
 }
 
-#[cfg(feature = "unstable-config")]
 fn type_name_of<T: ?Sized>(_val: &T) -> &'static str {
     std::any::type_name::<T>()
 }
@@ -106,14 +99,10 @@ impl HttpClient for Box<dyn HttpClient> {
         self.as_ref().send(req).await
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
         self.as_mut().set_config(config)
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     fn config(&self) -> &Config {
         self.as_ref().config()
     }
