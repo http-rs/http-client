@@ -110,7 +110,7 @@ impl Config {
     }
 
     /// Set the maximum number of simultaneous connections that this client is allowed to keep open to individual hosts at one time.
-    pub fn max_connections_per_host(mut self, max_connections_per_host: usize) -> Self {
+    pub fn set_max_connections_per_host(mut self, max_connections_per_host: usize) -> Self {
         self.max_connections_per_host = max_connections_per_host;
         self
     }
