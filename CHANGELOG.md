@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.5.0]
+
+### Added
+- `Config` has been stabilized and is now available by default!
+- `wasm_client` support for `Config` (only timeouts).
+- `Config::max_connections_per_host` (Supported on `h1_client` and `curl_client`.)
+
+### Deprecated
+- `H1Client::with_max_connections()` was been superseded by `Config::max_connections_per_host`.
+
 ## [6.4.1] - 2021-05-19
 
 ### Docs
