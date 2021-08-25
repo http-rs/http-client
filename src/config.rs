@@ -34,6 +34,10 @@ pub struct Config {
     /// - `hyper_client`: No effect. Hyper does not support such an option.
     /// - `wasm_client`: No effect. Web browsers do not support such an option.
     pub max_connections_per_host: usize,
+    /// Maximum number of simultaneously open persistent connections that this client may cache in the pool.
+    ///
+    /// Default: `5`.
+    pub connection_cache_size: usize,
     /// TLS Configuration (Rustls)
     #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
     #[cfg(all(feature = "h1_client", feature = "rustls"))]
@@ -51,7 +55,8 @@ impl Debug for Config {
             .field("http_keep_alive", &self.http_keep_alive)
             .field("tcp_no_delay", &self.tcp_no_delay)
             .field("timeout", &self.timeout)
-            .field("max_connections_per_host", &self.max_connections_per_host);
+            .field("max_connections_per_host", &self.max_connections_per_host)
+            .field("connection_cache_size", &self.connection_cache_size);
 
         #[cfg(all(feature = "h1_client", feature = "rustls"))]
         {
@@ -78,6 +83,7 @@ impl Config {
             tcp_no_delay: false,
             timeout: Some(Duration::from_secs(60)),
             max_connections_per_host: 50,
+            connection_cache_size: 5,
             #[cfg(all(feature = "h1_client", any(feature = "rustls", feature = "native-tls")))]
             tls_config: None,
         }
@@ -112,6 +118,12 @@ impl Config {
     /// Set the maximum number of simultaneous connections that this client is allowed to keep open to individual hosts at one time.
     pub fn set_max_connections_per_host(mut self, max_connections_per_host: usize) -> Self {
         self.max_connections_per_host = max_connections_per_host;
+        self
+    }
+
+    /// Set the maximum number of simultaneously open persistent connections that this client may cache in the pool.
+    pub fn set_connection_cache_size(mut self, connection_cache_size: usize) -> Self {
+        self.connection_cache_size = connection_cache_size;
         self
     }
 
