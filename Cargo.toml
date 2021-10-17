@@ -1,6 +1,6 @@
 [package]
 name = "http-client"
-version = "6.4.1"
+version = "6.5.1"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/http-rs/http-client"
 documentation = "https://docs.rs/http-client"
@@ -21,18 +21,18 @@ rustdoc-args = ["--cfg", "feature=\"docs\""]
 
 [features]
 default = ["h1_client", "native-tls"]
-docs = ["h1_client", "curl_client", "wasm_client", "hyper_client", "unstable-config"]
+docs = ["h1_client", "curl_client", "wasm_client", "hyper_client"]
 
 h1_client = ["async-h1", "async-std", "deadpool", "futures"]
 native_client = ["curl_client", "wasm_client"]
 curl_client = ["isahc", "async-std"]
-wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures"]
+wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures", "async-std"]
 hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http", "futures-util", "tokio"]
 
 native-tls = ["async-native-tls"]
 rustls = ["async-tls", "rustls_crate"]
 
-unstable-config = []
+unstable-config = [] # deprecated
 
 [dependencies]
 async-trait = "0.1.37"
@@ -97,3 +97,7 @@ tokio = { version = "0.2.21", features = ["macros"] }
 serde = "1.0"
 serde_json = "1.0"
 mockito = "0.23.3"
+
+[dev-dependencies.getrandom]
+version = "0.2"
+features = ["js"]

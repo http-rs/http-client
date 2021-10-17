@@ -1,8 +1,6 @@
 //! http-client implementation for reqwest
 
-#[cfg(feature = "unstable-config")]
-use std::convert::Infallible;
-use std::convert::TryFrom;
+use std::convert::{Infallible, TryFrom};
 use std::fmt::Debug;
 use std::io;
 use std::str::FromStr;
@@ -74,7 +72,6 @@ impl HttpClient for HyperClient {
         let req = HyperHttpRequest::try_from(req).await?.into_inner();
 
         let conn_fut = self.client.dyn_request(req);
-        #[cfg(feature = "unstable-config")]
         let response = if let Some(timeout) = self.config.timeout {
             match tokio::time::timeout(timeout, conn_fut).await {
                 Err(_elapsed) => Err(Error::from_str(400, "Client timed out")),
@@ -85,15 +82,10 @@ impl HttpClient for HyperClient {
             conn_fut.await?
         };
 
-        #[cfg(not(feature = "unstable-config"))]
-        let response = conn_fut.await?;
-
         let res = HttpTypesResponse::try_from(response).await?.into_inner();
         Ok(res)
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     /// Override the existing configuration with new configuration.
     ///
     /// Config options may not impact existing connections.
@@ -111,16 +103,12 @@ impl HttpClient for HyperClient {
         Ok(())
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-    #[cfg(feature = "unstable-config")]
     /// Get the current configuration.
     fn config(&self) -> &Config {
         &self.config
     }
 }
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "unstable-config")))]
-#[cfg(feature = "unstable-config")]
 impl TryFrom<Config> for HyperClient {
     type Error = Infallible;
 
