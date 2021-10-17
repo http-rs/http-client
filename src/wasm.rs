@@ -1,23 +1,33 @@
 //! http-client implementation for fetch
 
-use super::{http_types::Headers, Body, Error, HttpClient, Request, Response};
+use std::convert::{Infallible, TryFrom};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use futures::prelude::*;
 
-use std::convert::TryFrom;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use crate::Config;
+
+use super::{http_types::Headers, Body, Error, HttpClient, Request, Response};
 
 /// WebAssembly HTTP Client.
 #[derive(Debug)]
 pub struct WasmClient {
-    _priv: (),
+    config: Config,
 }
 
 impl WasmClient {
     /// Create a new instance.
     pub fn new() -> Self {
-        Self { _priv: () }
+        Self {
+            config: Config::default(),
+        }
+    }
+}
+
+impl Default for WasmClient {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -30,9 +40,16 @@ impl HttpClient for WasmClient {
         'a: 'async_trait,
         Self: 'async_trait,
     {
+        let config = self.config.clone();
+
         InnerFuture::new(async move {
             let req: fetch::Request = fetch::Request::new(req).await?;
-            let mut res = req.send().await?;
+            let conn = req.send();
+            let mut res = if let Some(timeout) = config.timeout {
+                async_std::future::timeout(timeout, conn).await??
+            } else {
+                conn.await?
+            };
 
             let body = res.body_bytes();
             let mut response =
@@ -45,6 +62,28 @@ impl HttpClient for WasmClient {
 
             Ok(response)
         })
+    }
+
+    /// Override the existing configuration with new configuration.
+    ///
+    /// Config options may not impact existing connections.
+    fn set_config(&mut self, config: Config) -> http_types::Result<()> {
+        self.config = config;
+
+        Ok(())
+    }
+
+    /// Get the current configuration.
+    fn config(&self) -> &Config {
+        &self.config
+    }
+}
+
+impl TryFrom<Config> for WasmClient {
+    type Error = Infallible;
+
+    fn try_from(config: Config) -> Result<Self, Self::Error> {
+        Ok(Self { config })
     }
 }
 
