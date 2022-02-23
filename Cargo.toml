@@ -1,6 +1,6 @@
 [package]
 name = "http-client"
-version = "6.5.1"
+version = "6.5.2"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/http-rs/http-client"
 documentation = "https://docs.rs/http-client"
@@ -23,7 +23,7 @@ rustdoc-args = ["--cfg", "feature=\"docs\""]
 default = ["h1_client", "native-tls"]
 docs = ["h1_client", "curl_client", "wasm_client", "hyper_client"]
 
-h1_client = ["async-h1", "async-std", "deadpool", "futures"]
+h1_client = ["async-h1", "async-std", "dashmap", "deadpool", "futures"]
 native_client = ["curl_client", "wasm_client"]
 curl_client = ["isahc", "async-std"]
 wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures", "async-std"]
@@ -36,7 +36,6 @@ unstable-config = [] # deprecated
 
 [dependencies]
 async-trait = "0.1.37"
-dashmap = "4.0.2"
 http-types = "2.3.0"
 log = "0.4.7"
 cfg-if = "1.0.0"
@@ -45,6 +44,7 @@ cfg-if = "1.0.0"
 async-h1 = { version = "2.0.0", optional = true }
 async-std = { version = "1.6.0", default-features = false, optional = true }
 async-native-tls = { version = "0.3.1", optional = true }
+dashmap = { version = "4.0.2", optional = true }
 deadpool = { version = "0.7.0", optional = true }
 futures = { version = "0.3.8", optional = true }
 
