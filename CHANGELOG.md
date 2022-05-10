@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.5.1]
+
 Same as 6.5.0 with one change:
 
 `Config::max_connections_per_host()` is now properly named `Config::set_max_connections_per_host()`.
