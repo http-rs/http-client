@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.5.2]
+
+### Deps
+- Now only uses `dashmap` for `h1-client`.
+
 ## [6.5.1]
 
 Same as 6.5.0 with one change:
