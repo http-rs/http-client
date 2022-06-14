@@ -2,9 +2,9 @@
 
 use std::convert::{Infallible, TryFrom};
 use std::pin::Pin;
-use std::task::{Context, Poll};
 
 use futures::prelude::*;
+use send_wrapper::SendWrapper;
 
 use crate::Config;
 
@@ -42,7 +42,7 @@ impl HttpClient for WasmClient {
     {
         let config = self.config.clone();
 
-        InnerFuture::new(async move {
+        wrap_send(async move {
             let req: fetch::Request = fetch::Request::new(req).await?;
             let conn = req.send();
             let mut res = if let Some(timeout) = config.timeout {
@@ -87,29 +87,13 @@ impl TryFrom<Config> for WasmClient {
     }
 }
 
-struct InnerFuture {
-    fut: Pin<Box<dyn Future<Output = Result<Response, Error>> + 'static>>,
-}
-
-impl InnerFuture {
-    fn new<F: Future<Output = Result<Response, Error>> + 'static>(fut: F) -> Pin<Box<Self>> {
-        Box::pin(Self { fut: Box::pin(fut) })
-    }
-}
-
-// This is safe because WASM doesn't have threads yet. Once WASM supports threads we should use a
-// thread to park the blocking implementation until it's been completed.
-unsafe impl Send for InnerFuture {}
-
-impl Future for InnerFuture {
-    type Output = Result<Response, Error>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // This is safe because we're only using this future as a pass-through for the inner
-        // future, in order to implement `Send`. If it's safe to poll the inner future, it's safe
-        // to proxy it too.
-        unsafe { Pin::new_unchecked(&mut self.fut).poll(cx) }
-    }
+// This should not panic because WASM doesn't have threads yet. Once WASM supports threads
+// we can use a thread to park the blocking implementation until it's been completed.
+fn wrap_send<Fut, O>(f: Fut) -> Pin<Box<dyn Future<Output = O> + Send + Sync + 'static>>
+where
+    Fut: Future<Output = O> + 'static,
+{
+    Box::pin(SendWrapper::new(f))
 }
 
 mod fetch {
