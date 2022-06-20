@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://book.async.rs/overview
 
 ## [Unreleased]
 
+## [6.5.3]
+
+### Deps
+- `h1-client` now uses `dashmap` at version `5.x >`, fixing an unsoundness issue.
+
 ## [6.5.2]
 
 ### Deps
