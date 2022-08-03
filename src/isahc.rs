@@ -41,25 +41,49 @@ impl IsahcClient {
 #[async_trait]
 impl HttpClient for IsahcClient {
     async fn send(&self, mut req: Request) -> Result<Response, Error> {
-        let mut builder = http::Request::builder()
-            .uri(req.url().as_str())
-            .method(http::Method::from_bytes(req.method().to_string().as_bytes()).unwrap());
-
-        for (name, value) in req.iter() {
-            builder = builder.header(name.as_str(), value.as_str());
-        }
-
         let body = req.take_body();
-        let body = match body.len() {
-            Some(len) => isahc::Body::from_reader_sized(body, len as u64),
-            None => isahc::Body::from_reader(body),
-        };
 
-        let request = builder.body(body).unwrap();
-        let res = self.client.send_async(request).await.map_err(Error::from)?;
-        let maybe_metrics = res.metrics().cloned();
-        let (parts, body) = res.into_parts();
-        let body = Body::from_reader(BufReader::new(body), None);
+        // Code duplication to get around https://github.com/http-rs/surf/issues/321
+        // This is because `http::request` is generic (sized) over an existent and non-existent body differently, which is less than ideal.
+        let (parts, response_body, maybe_metrics) = match body.len() {
+            Some(len) => {
+                let mut builder = http::Request::builder()
+                    .uri(req.url().as_str())
+                    .method(http::Method::from_bytes(req.method().to_string().as_bytes()).unwrap());
+
+                for (name, value) in req.iter() {
+                    builder = builder.header(name.as_str(), value.as_str());
+                }
+                let body = isahc::Body::from_reader_sized(body, len as u64);
+                let request = builder.body(body).unwrap();
+                let res = self.client.send_async(request).await.map_err(Error::from)?;
+                let maybe_metrics = res.metrics().cloned();
+                let (parts, body) = res.into_parts();
+                (
+                    parts,
+                    Body::from_reader(BufReader::new(body), None),
+                    maybe_metrics,
+                )
+            }
+            None => {
+                let mut builder = http::Request::builder()
+                    .uri(req.url().as_str())
+                    .method(http::Method::from_bytes(req.method().to_string().as_bytes()).unwrap());
+
+                for (name, value) in req.iter() {
+                    builder = builder.header(name.as_str(), value.as_str());
+                }
+                let request = builder.body(()).unwrap();
+                let res = self.client.send_async(request).await.map_err(Error::from)?;
+                let maybe_metrics = res.metrics().cloned();
+                let (parts, body) = res.into_parts();
+                (
+                    parts,
+                    Body::from_reader(BufReader::new(body), None),
+                    maybe_metrics,
+                )
+            }
+        };
         let mut response = http_types::Response::new(parts.status.as_u16());
         for (name, value) in &parts.headers {
             response.append_header(name.as_str(), value.to_str().unwrap());
@@ -69,7 +93,7 @@ impl HttpClient for IsahcClient {
             response.ext_mut().insert(metrics);
         }
 
-        response.set_body(body);
+        response.set_body(response_body);
         Ok(response)
     }
 
