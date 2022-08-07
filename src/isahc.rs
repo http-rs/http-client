@@ -82,6 +82,8 @@ impl HttpClient for IsahcClient {
 
         if !config.http_keep_alive {
             builder = builder.connection_cache_size(0);
+        } else {
+            builder = builder.connection_cache_size(config.connection_cache_size);
         }
         if config.tcp_no_delay {
             builder = builder.tcp_nodelay();
@@ -106,10 +108,13 @@ impl TryFrom<Config> for IsahcClient {
     type Error = isahc::Error;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
-        let mut builder = isahc::HttpClient::builder();
+        let mut builder =
+            isahc::HttpClient::builder().max_connections_per_host(config.max_connections_per_host);
 
         if !config.http_keep_alive {
             builder = builder.connection_cache_size(0);
+        } else {
+            builder = builder.connection_cache_size(config.connection_cache_size);
         }
         if config.tcp_no_delay {
             builder = builder.tcp_nodelay();
