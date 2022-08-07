@@ -87,7 +87,7 @@ impl HttpClient for IsahcClient {
             builder = builder.tcp_nodelay();
         }
         if let Some(timeout) = config.timeout {
-            builder = builder.timeout(timeout);
+            builder = builder.connect_timeout(timeout);
         }
 
         self.client = builder.build()?;
@@ -115,7 +115,7 @@ impl TryFrom<Config> for IsahcClient {
             builder = builder.tcp_nodelay();
         }
         if let Some(timeout) = config.timeout {
-            builder = builder.timeout(timeout);
+            builder = builder.connect_timeout(timeout);
         }
 
         Ok(Self {
