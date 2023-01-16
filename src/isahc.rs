@@ -161,7 +161,7 @@ mod tests {
         let client = task::spawn(async move {
             task::sleep(Duration::from_millis(100)).await;
             let request =
-                build_test_request(Url::parse(&format!("http://localhost:{}/", port)).unwrap());
+                build_test_request(Url::parse(&format!("http://localhost:{port}/")).unwrap());
             let mut response: Response = IsahcClient::new().send(request).await?;
             assert_eq!(response.body_string().await.unwrap(), "hello");
             Ok(())

@@ -216,7 +216,7 @@ impl HyperHttpRequest {
             None => {
                 return Err(Error::from_str(
                     StatusCode::BadRequest,
-                    format!("missing url scheme"),
+                    "missing url scheme",
                 ))
             }
         };

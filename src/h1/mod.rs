@@ -234,7 +234,7 @@ impl HttpClient for H1Client {
                         req.set_peer_addr(stream.get_ref().0.peer_addr().ok());
                         req.set_local_addr(stream.get_ref().0.local_addr().ok());
                     }
-                    #[cfg(feature = "h1-native-tls")]
+                    #[cfg(all(feature = "h1-native-tls", not(feature = "h1-rustls")))]
                     {
                         req.set_peer_addr(stream.get_ref().peer_addr().ok());
                         req.set_local_addr(stream.get_ref().local_addr().ok());
@@ -327,7 +327,7 @@ mod tests {
         let client = task::spawn(async move {
             task::sleep(Duration::from_millis(100)).await;
             let request =
-                build_test_request(Url::parse(&format!("http://localhost:{}/", port)).unwrap());
+                build_test_request(Url::parse(&format!("http://localhost:{port}/")).unwrap());
             let mut response: Response = H1Client::new().send(request).await?;
             assert_eq!(response.body_string().await.unwrap(), "hello");
             Ok(())

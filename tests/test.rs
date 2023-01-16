@@ -92,7 +92,7 @@ async fn get_google() -> Result<(), http_types::Error> {
 
     let msg = res.body_bytes().await?;
     let msg = String::from_utf8_lossy(&msg);
-    println!("recieved: '{}'", msg);
+    println!("received: '{msg}'");
     assert!(msg.contains("<!doctype html>"));
     assert!(msg.contains("<title>Google</title>"));
     assert!(msg.contains("<head>"));
@@ -170,7 +170,7 @@ async fn fallback_to_ipv4() {
     // Kips the initial "http://127.0.0.1:" to get only the port number
     let mock_port = &mockito::server_url()[17..];
 
-    let url = &format!("http://localhost:{}", mock_port);
+    let url = &format!("http://localhost:{mock_port}");
     let req = Request::new(http_types::Method::Get, Url::parse(url).unwrap());
     client.send(req.clone()).await.unwrap();
 }

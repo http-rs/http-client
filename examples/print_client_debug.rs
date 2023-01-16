@@ -14,6 +14,7 @@ use http_client::HttpClient;
 use http_types::{Method, Request};
 
 #[cfg(feature = "hyper0_14-client")]
+#[allow(unused_imports)]
 use tokio1 as tokio;
 
 #[cfg(any(feature = "h1-client", feature = "docs"))]
@@ -39,7 +40,7 @@ use http_client::wasm::WasmClient as Client;
     ),
     async_std::main
 )]
-#[cfg_attr(feature = "hyper0_14-client", tokio::main)]
+#[cfg_attr(all(feature = "hyper0_14-client", not(feature = "docs")), tokio::main)]
 async fn main() {
     let client = Client::new();
 

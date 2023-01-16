@@ -88,10 +88,11 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
 
         #[cfg(feature = "h1-rustls")]
-        conn.get_ref().0
+        conn.get_ref()
+            .0
             .set_nodelay(self.config.tcp_no_delay)
             .map_err(Error::from)?;
-        #[cfg(feature = "h1-native-tls")]
+        #[cfg(all(feature = "h1-native-tls", not(feature = "h1-rustls")))]
         conn.get_ref()
             .set_nodelay(self.config.tcp_no_delay)
             .map_err(Error::from)?;
