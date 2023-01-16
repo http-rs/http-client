@@ -53,7 +53,7 @@ async-rustls = { version = "0.3", optional = true }
 webpki-roots = { version = "0.22", optional = true }
 
 # h1-client + h1-native-tls
-async-native-tls = { version = "0.3.1", optional = true }
+async-native-tls = { version = "0.4", optional = true }
 
 # hyper0_14-client
 hyper0_14 = { package = "hyper", version = "0.14", features = ["client", "http1", "tcp", "stream"], optional = true }

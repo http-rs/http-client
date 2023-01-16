@@ -229,8 +229,16 @@ impl HttpClient for H1Client {
                         Err(e) => return Err(Error::from_str(400, e.to_string())),
                     };
 
-                    req.set_peer_addr(stream.get_ref().0.peer_addr().ok());
-                    req.set_local_addr(stream.get_ref().0.local_addr().ok());
+                    #[cfg(feature = "h1-rustls")]
+                    {
+                        req.set_peer_addr(stream.get_ref().0.peer_addr().ok());
+                        req.set_local_addr(stream.get_ref().0.local_addr().ok());
+                    }
+                    #[cfg(feature = "h1-native-tls")]
+                    {
+                        req.set_peer_addr(stream.get_ref().peer_addr().ok());
+                        req.set_local_addr(stream.get_ref().local_addr().ok());
+                    }
 
                     let tls_conn = client::connect(TlsConnWrapper::new(stream), req);
                     return if let Some(timeout) = self.config.timeout {
