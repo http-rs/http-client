@@ -35,12 +35,30 @@ pub struct Config {
     /// - `wasm_client`: No effect. Web browsers do not support such an option.
     pub max_connections_per_host: usize,
     /// TLS Configuration (Rustls)
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
-    #[cfg(all(feature = "h1_client", feature = "rustls"))]
+    ///
+    /// Available for the following backends:
+    /// - `h1-client` with `h1-rustls` feature.
+    /// - `hyper0_14-client` with `hyper0_14-rustls` feature.
+    ///
+    /// Not available for curl or wasm clients.
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "h1-rustls", feature = "hyper0_14-rustls")))
+    )]
+    #[cfg(any(feature = "h1-rustls", feature = "hyper0_14-rustls"))]
     pub tls_config: Option<std::sync::Arc<rustls_crate::ClientConfig>>,
     /// TLS Configuration (Native TLS)
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
-    #[cfg(all(feature = "h1_client", feature = "native-tls", not(feature = "rustls")))]
+    ///
+    /// Available for the following backends:
+    /// - `h1-client` with `h1-native-tls` feature.
+    ///
+    /// Not available for curl or wasm clients.
+    /// Also not available for the hyper client.
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1-native-tls")))]
+    #[cfg(all(
+        feature = "h1-native-tls",
+        not(any(feature = "h1-rustls", feature = "hyper0_14-rustls"))
+    ))]
     pub tls_config: Option<std::sync::Arc<async_native_tls::TlsConnector>>,
 }
 
@@ -53,15 +71,19 @@ impl Debug for Config {
             .field("timeout", &self.timeout)
             .field("max_connections_per_host", &self.max_connections_per_host);
 
-        #[cfg(all(feature = "h1_client", feature = "rustls"))]
+        #[cfg(any(feature = "h1-rustls", feature = "hyper0_14-rustls"))]
         {
             if self.tls_config.is_some() {
-                dbg_struct.field("tls_config", &"Some(rustls::ClientConfig)");
+                dbg_struct.field("tls_config", &Some(format_args!("rustls::ClientConfig")));
             } else {
-                dbg_struct.field("tls_config", &"None");
+                dbg_struct.field("tls_config", &None::<()>);
             }
         }
-        #[cfg(all(feature = "h1_client", feature = "native-tls", not(feature = "rustls")))]
+        #[cfg(all(
+            feature = "h1-client",
+            feature = "h1-native-tls",
+            not(feature = "h1-rustls")
+        ))]
         {
             dbg_struct.field("tls_config", &self.tls_config);
         }
@@ -78,7 +100,11 @@ impl Config {
             tcp_no_delay: false,
             timeout: Some(Duration::from_secs(60)),
             max_connections_per_host: 50,
-            #[cfg(all(feature = "h1_client", any(feature = "rustls", feature = "native-tls")))]
+            #[cfg(any(
+                feature = "h1-rustls",
+                feature = "h1-native-tls",
+                feature = "hyper0_14-rustls",
+            ))]
             tls_config: None,
         }
     }
@@ -116,8 +142,11 @@ impl Config {
     }
 
     /// Set TLS Configuration (Rustls)
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
-    #[cfg(all(feature = "h1_client", feature = "rustls"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "h1-rustls", feature = "hyper0_14-rustls")))
+    )]
+    #[cfg(any(feature = "h1-rustls", feature = "hyper0_14-rustls"))]
     pub fn set_tls_config(
         mut self,
         tls_config: Option<std::sync::Arc<rustls_crate::ClientConfig>>,
@@ -126,8 +155,11 @@ impl Config {
         self
     }
     /// Set TLS Configuration (Native TLS)
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
-    #[cfg(all(feature = "h1_client", feature = "native-tls", not(feature = "rustls")))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "h1-native-tls")))]
+    #[cfg(all(
+        feature = "h1-native-tls",
+        not(any(feature = "h1-rustls", feature = "hyper0_14-rustls"))
+    ))]
     pub fn set_tls_config(
         mut self,
         tls_config: Option<std::sync::Arc<async_native_tls::TlsConnector>>,

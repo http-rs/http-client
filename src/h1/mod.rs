@@ -12,9 +12,9 @@ use deadpool::managed::Pool;
 use http_types::StatusCode;
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "rustls")] {
-        use async_tls::client::TlsStream;
-    } else if #[cfg(feature = "native-tls")] {
+    if #[cfg(feature = "h1-rustls")] {
+        use async_rustls::client::TlsStream;
+    } else if #[cfg(feature = "h1-native-tls")] {
         use async_native_tls::TlsStream;
     }
 }
@@ -24,28 +24,28 @@ use crate::Config;
 use super::{async_trait, Error, HttpClient, Request, Response};
 
 mod tcp;
-#[cfg(any(feature = "native-tls", feature = "rustls"))]
+#[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
 mod tls;
 
 use tcp::{TcpConnWrapper, TcpConnection};
-#[cfg(any(feature = "native-tls", feature = "rustls"))]
+#[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
 use tls::{TlsConnWrapper, TlsConnection};
 
 type HttpPool = DashMap<SocketAddr, Pool<TcpStream, std::io::Error>>;
-#[cfg(any(feature = "native-tls", feature = "rustls"))]
+#[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
 type HttpsPool = DashMap<SocketAddr, Pool<TlsStream<TcpStream>, Error>>;
 
 /// async-h1 based HTTP Client, with connection pooling ("Keep-Alive").
 pub struct H1Client {
     http_pools: HttpPool,
-    #[cfg(any(feature = "native-tls", feature = "rustls"))]
+    #[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
     https_pools: HttpsPool,
     config: Arc<Config>,
 }
 
 impl Debug for H1Client {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let https_pools = if cfg!(any(feature = "native-tls", feature = "rustls")) {
+        let https_pools = if cfg!(any(feature = "h1-native-tls", feature = "h1-rustls")) {
             self.http_pools
                 .iter()
                 .map(|pool| {
@@ -92,31 +92,9 @@ impl H1Client {
     pub fn new() -> Self {
         Self {
             http_pools: DashMap::new(),
-            #[cfg(any(feature = "native-tls", feature = "rustls"))]
+            #[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
             https_pools: DashMap::new(),
             config: Arc::new(Config::default()),
-        }
-    }
-
-    /// Create a new instance.
-    #[deprecated(
-        since = "6.5.0",
-        note = "This function is misnamed. Prefer `Config::max_connections_per_host` instead."
-    )]
-    pub fn with_max_connections(max: usize) -> Self {
-        #[cfg(features = "h1_client")]
-        assert!(max > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
-
-        let config = Config {
-            max_connections_per_host: max,
-            ..Default::default()
-        };
-
-        Self {
-            http_pools: DashMap::new(),
-            #[cfg(any(feature = "native-tls", feature = "rustls"))]
-            https_pools: DashMap::new(),
-            config: Arc::new(config),
         }
     }
 }
@@ -127,7 +105,7 @@ impl HttpClient for H1Client {
         req.insert_header("Connection", "keep-alive");
 
         // Insert host
-        #[cfg(any(feature = "native-tls", feature = "rustls"))]
+        #[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
         let host = req
             .url()
             .host_str()
@@ -135,18 +113,24 @@ impl HttpClient for H1Client {
             .to_string();
 
         let scheme = req.url().scheme();
-        if scheme != "http"
-            && (scheme != "https" || cfg!(not(any(feature = "native-tls", feature = "rustls"))))
-        {
+
+        if scheme == "https" {
+            if cfg!(not(any(feature = "h1-native-tls", feature = "h1-rustls"))) {
+                return Err(Error::from_str(
+                    StatusCode::BadRequest,
+                    "invalid url scheme `https` - requires `http-client` feature `h1-rustls` or `h1-native-tls`"
+                ));
+            }
+        } else if scheme != "http" {
             return Err(Error::from_str(
                 StatusCode::BadRequest,
-                format!("invalid url scheme '{}'", scheme),
+                format!("invalid url scheme `{scheme}`"),
             ));
         }
 
         let addrs = req.url().socket_addrs(|| match req.url().scheme() {
             "http" => Some(80),
-            #[cfg(any(feature = "native-tls", feature = "rustls"))]
+            #[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
             "https" => Some(443),
             _ => None,
         })?;
@@ -170,7 +154,7 @@ impl HttpClient for H1Client {
                             tcp_conn.await
                         };
                     }
-                    #[cfg(any(feature = "native-tls", feature = "rustls"))]
+                    #[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
                     "https" => {
                         let raw_stream = async_std::net::TcpStream::connect(addr).await?;
                         req.set_peer_addr(raw_stream.peer_addr().ok());
@@ -221,7 +205,7 @@ impl HttpClient for H1Client {
                         tcp_conn.await
                     };
                 }
-                #[cfg(any(feature = "native-tls", feature = "rustls"))]
+                #[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
                 "https" => {
                     let pool_ref = if let Some(pool_ref) = self.https_pools.get(&addr) {
                         pool_ref
@@ -245,8 +229,16 @@ impl HttpClient for H1Client {
                         Err(e) => return Err(Error::from_str(400, e.to_string())),
                     };
 
-                    req.set_peer_addr(stream.get_ref().peer_addr().ok());
-                    req.set_local_addr(stream.get_ref().local_addr().ok());
+                    #[cfg(feature = "h1-rustls")]
+                    {
+                        req.set_peer_addr(stream.get_ref().0.peer_addr().ok());
+                        req.set_local_addr(stream.get_ref().0.local_addr().ok());
+                    }
+                    #[cfg(all(feature = "h1-native-tls", not(feature = "h1-rustls")))]
+                    {
+                        req.set_peer_addr(stream.get_ref().peer_addr().ok());
+                        req.set_local_addr(stream.get_ref().local_addr().ok());
+                    }
 
                     let tls_conn = client::connect(TlsConnWrapper::new(stream), req);
                     return if let Some(timeout) = self.config.timeout {
@@ -269,8 +261,8 @@ impl HttpClient for H1Client {
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
-        #[cfg(features = "h1_client")]
-        assert!(config.max_connections_per_host > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
+        #[cfg(feature = "h1-client")]
+        assert!(config.max_connections_per_host > 0, "max_connections_per_host with h1-client must be greater than zero or it will deadlock!");
 
         self.config = Arc::new(config);
 
@@ -279,7 +271,7 @@ impl HttpClient for H1Client {
 
     /// Get the current configuration.
     fn config(&self) -> &Config {
-        &*self.config
+        &self.config
     }
 }
 
@@ -287,12 +279,12 @@ impl TryFrom<Config> for H1Client {
     type Error = Infallible;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
-        #[cfg(features = "h1_client")]
-        assert!(config.max_connections_per_host > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
+        #[cfg(feature = "h1-client")]
+        assert!(config.max_connections_per_host > 0, "max_connections_per_host with h1-client must be greater than zero or it will deadlock!");
 
         Ok(Self {
             http_pools: DashMap::new(),
-            #[cfg(any(feature = "native-tls", feature = "rustls"))]
+            #[cfg(any(feature = "h1-native-tls", feature = "h1-rustls"))]
             https_pools: DashMap::new(),
             config: Arc::new(config),
         })
@@ -301,12 +293,14 @@ impl TryFrom<Config> for H1Client {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::Duration;
+
     use async_std::prelude::*;
     use async_std::task;
     use http_types::url::Url;
     use http_types::Result;
-    use std::time::Duration;
+
+    use super::*;
 
     fn build_test_request(url: Url) -> Request {
         let mut req = Request::new(http_types::Method::Post, url);
@@ -333,7 +327,7 @@ mod tests {
         let client = task::spawn(async move {
             task::sleep(Duration::from_millis(100)).await;
             let request =
-                build_test_request(Url::parse(&format!("http://localhost:{}/", port)).unwrap());
+                build_test_request(Url::parse(&format!("http://localhost:{port}/")).unwrap());
             let mut response: Response = H1Client::new().send(request).await?;
             assert_eq!(response.body_string().await.unwrap(), "hello");
             Ok(())

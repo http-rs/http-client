@@ -127,12 +127,14 @@ impl TryFrom<Config> for IsahcClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::Duration;
+
     use async_std::prelude::*;
     use async_std::task;
     use http_types::url::Url;
     use http_types::Result;
-    use std::time::Duration;
+
+    use super::*;
 
     fn build_test_request(url: Url) -> Request {
         let mut req = Request::new(http_types::Method::Post, url);
@@ -159,7 +161,7 @@ mod tests {
         let client = task::spawn(async move {
             task::sleep(Duration::from_millis(100)).await;
             let request =
-                build_test_request(Url::parse(&format!("http://localhost:{}/", port)).unwrap());
+                build_test_request(Url::parse(&format!("http://localhost:{port}/")).unwrap());
             let mut response: Response = IsahcClient::new().send(request).await?;
             assert_eq!(response.body_string().await.unwrap(), "hello");
             Ok(())

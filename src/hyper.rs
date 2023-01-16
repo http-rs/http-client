@@ -1,4 +1,4 @@
-//! http-client implementation for reqwest
+//! http-client implementation for hyper / tokio
 
 use std::convert::{Infallible, TryFrom};
 use std::fmt::Debug;
@@ -8,9 +8,16 @@ use std::str::FromStr;
 use futures_util::stream::TryStreamExt;
 use http_types::headers::{HeaderName, HeaderValue};
 use http_types::StatusCode;
-use hyper::body::HttpBody;
-use hyper::client::connect::Connect;
-use hyper_tls::HttpsConnector;
+use hyper0_14 as hyper;
+use hyper0_14::body::HttpBody;
+use hyper0_14::client::connect::Connect;
+use hyper0_14::client::HttpConnector;
+use tokio1 as tokio;
+
+#[cfg(feature = "hyper0_14-rustls")]
+use hyper0_14_rustls_lib::HttpsConnectorBuilder;
+#[cfg(feature = "hyper0_14-native-tls")]
+use hyper0_14_tls_lib::HttpsConnector;
 
 use crate::Config;
 
@@ -39,8 +46,21 @@ pub struct HyperClient {
 impl HyperClient {
     /// Create a new client instance.
     pub fn new() -> Self {
-        let https = HttpsConnector::new();
-        let client = hyper::Client::builder().build(https);
+        #[allow(unused_mut)]
+        let mut connector = HttpConnector::new();
+        #[cfg(any(feature = "hyper0_14-rustls", feature = "hyper0_14-native-tls"))]
+        connector.enforce_http(false);
+
+        #[cfg(feature = "hyper0_14-native-tls")]
+        let connector = HttpsConnector::new_with_connector(connector);
+        #[cfg(feature = "hyper0_14-rustls")]
+        let connector = HttpsConnectorBuilder::default()
+            .with_native_roots()
+            .https_or_http()
+            .enable_http1()
+            .wrap_connector(connector);
+
+        let client = hyper::Client::builder().build(connector);
 
         Self {
             client: Box::new(client),
@@ -90,7 +110,27 @@ impl HttpClient for HyperClient {
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
-        let connector = HttpsConnector::new();
+        #[allow(unused_mut)]
+        let mut connector = HttpConnector::new();
+        #[cfg(any(feature = "hyper0_14-rustls", feature = "hyper0_14-native-tls"))]
+        connector.enforce_http(false);
+
+        #[cfg(feature = "hyper0_14-native-tls")]
+        let connector = HttpsConnector::new_with_connector(connector);
+        #[cfg(feature = "hyper0_14-rustls")]
+        let connector = match config.tls_config {
+            Some(ref config) => HttpsConnectorBuilder::default()
+                .with_tls_config(config.as_ref().clone())
+                .https_or_http()
+                .enable_http1()
+                .wrap_connector(connector),
+            None => HttpsConnectorBuilder::default()
+                .with_native_roots()
+                .https_or_http()
+                .enable_http1()
+                .wrap_connector(connector),
+        };
+
         let mut builder = hyper::Client::builder();
 
         if !config.http_keep_alive {
@@ -113,7 +153,27 @@ impl TryFrom<Config> for HyperClient {
     type Error = Infallible;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
-        let connector = HttpsConnector::new();
+        #[allow(unused_mut)]
+        let mut connector = HttpConnector::new();
+        #[cfg(any(feature = "hyper0_14-rustls", feature = "hyper0_14-native-tls"))]
+        connector.enforce_http(false);
+
+        #[cfg(feature = "hyper0_14-native-tls")]
+        let connector = HttpsConnector::new_with_connector(connector);
+        #[cfg(feature = "hyper0_14-rustls")]
+        let connector = match config.tls_config {
+            Some(ref config) => HttpsConnectorBuilder::default()
+                .with_tls_config(config.as_ref().clone())
+                .https_or_http()
+                .enable_http1()
+                .wrap_connector(connector),
+            None => HttpsConnectorBuilder::default()
+                .with_native_roots()
+                .https_or_http()
+                .enable_http1()
+                .wrap_connector(connector),
+        };
+
         let mut builder = hyper::Client::builder();
 
         if !config.http_keep_alive {
@@ -136,8 +196,29 @@ impl HyperHttpRequest {
 
         // `HyperClient` depends on the scheme being either "http" or "https"
         match uri.scheme_str() {
+            #[cfg(not(any(feature = "hyper0_14-rustls", feature = "hyper0_14-native-tls")))]
+            Some("http") => (),
+            #[cfg(not(any(feature = "hyper0_14-rustls", feature = "hyper0_14-native-tls")))]
+            Some("https") => {
+                return Err(Error::from_str(
+                    StatusCode::BadRequest,
+                    "invalid url scheme `https` - requires `http-client` feature `hyper0_14-rustls` or `hyper0_14-native-tls`",
+                ))
+            },
+            #[cfg(any(feature = "hyper0_14-rustls", feature = "hyper0_14-native-tls"))]
             Some("http") | Some("https") => (),
-            _ => return Err(Error::from_str(StatusCode::BadRequest, "invalid scheme")),
+            Some(scheme) => {
+                return Err(Error::from_str(
+                    StatusCode::BadRequest,
+                    format!("invalid url scheme `{scheme}`"),
+                ))
+            }
+            None => {
+                return Err(Error::from_str(
+                    StatusCode::BadRequest,
+                    "missing url scheme",
+                ))
+            }
         };
 
         let mut request = hyper::Request::builder();
@@ -180,7 +261,9 @@ impl HttpTypesResponse {
         let (parts, body) = value.into_parts();
 
         let size_hint = body.size_hint().upper().map(|s| s as usize);
-        let body = body.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()));
+        let body = TryStreamExt::map_err(body, |err| {
+            io::Error::new(io::ErrorKind::Other, err.to_string())
+        });
         let body = http_types::Body::from_reader(body.into_async_read(), size_hint);
 
         let mut res = Response::new(parts.status);
@@ -208,13 +291,17 @@ impl HttpTypesResponse {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Error, HttpClient};
+    use std::time::Duration;
+
+    use hyper0_14 as hyper;
+    use tokio1 as tokio;
+
     use http_types::{Method, Request, Url};
     use hyper::service::{make_service_fn, service_fn};
-    use std::time::Duration;
     use tokio::sync::oneshot::channel;
 
     use super::HyperClient;
+    use crate::{Error, HttpClient};
 
     async fn echo(
         req: hyper::Request<hyper::Body>,
@@ -240,7 +327,7 @@ mod tests {
         req.set_body("hello");
 
         let client = async move {
-            tokio::time::delay_for(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
             let mut resp = client.send(req).await?;
             send.send(()).unwrap();
             assert_eq!(resp.body_string().await?, "hello");
