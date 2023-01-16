@@ -11,7 +11,7 @@ use futures::task::{Context, Poll};
 use crate::Config;
 
 #[derive(Clone)]
-#[cfg_attr(not(feature = "rustls"), derive(std::fmt::Debug))]
+#[cfg_attr(not(feature = "h1-rustls"), derive(std::fmt::Debug))]
 pub(crate) struct TcpConnection {
     addr: SocketAddr,
     config: Arc<Config>,

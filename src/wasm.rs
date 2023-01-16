@@ -97,13 +97,13 @@ where
 }
 
 mod fetch {
+    use std::iter::{IntoIterator, Iterator};
+    use std::pin::Pin;
+
     use js_sys::{Array, ArrayBuffer, Reflect, Uint8Array};
     use wasm_bindgen::{prelude::*, JsCast};
     use wasm_bindgen_futures::JsFuture;
     use web_sys::{RequestInit, Window, WorkerGlobalScope};
-
-    use std::iter::{IntoIterator, Iterator};
-    use std::pin::Pin;
 
     use http_types::StatusCode;
 

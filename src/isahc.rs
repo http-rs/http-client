@@ -127,12 +127,14 @@ impl TryFrom<Config> for IsahcClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::Duration;
+
     use async_std::prelude::*;
     use async_std::task;
     use http_types::url::Url;
     use http_types::Result;
-    use std::time::Duration;
+
+    use super::*;
 
     fn build_test_request(url: Url) -> Request {
         let mut req = Request::new(http_types::Method::Post, url);

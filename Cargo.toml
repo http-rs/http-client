@@ -1,6 +1,6 @@
 [package]
 name = "http-client"
-version = "6.5.3"
+version = "7.0.0-alpha.1"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/http-rs/http-client"
 documentation = "https://docs.rs/http-client"
@@ -20,19 +20,19 @@ features = ["docs"]
 rustdoc-args = ["--cfg", "feature=\"docs\""]
 
 [features]
-default = ["h1_client", "native-tls"]
-docs = ["h1_client", "curl_client", "wasm_client", "hyper_client"]
+docs = ["h1-client", "isahc0_9-client", "wasm-client", "hyper0_14-client", "h1-rustls", "h1-native-tls"]
 
-h1_client = ["async-h1", "async-std", "dashmap", "deadpool", "futures"]
-native_client = ["curl_client", "wasm_client"]
-curl_client = ["isahc", "async-std"]
-wasm_client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures", "async-std"]
-hyper_client = ["hyper", "hyper-tls", "http-types/hyperium_http", "futures-util", "tokio"]
+h1-client = ["async-h1", "async-std", "dashmap", "deadpool", "futures"]
+native-client = ["isahc0_9-client", "wasm-client"]
+isahc0_9-client = ["isahc", "async-std"]
+wasm-client = ["js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "futures", "async-std", "send_wrapper"]
+hyper0_14-client = ["hyper0_14", "http-types/hyperium_http", "futures-util", "tokio1"]
 
-native-tls = ["async-native-tls"]
-rustls = ["async-tls", "rustls_crate"]
+h1-rustls = ["async-rustls", "rustls_crate", "webpki-roots"]
+h1-native-tls = ["async-native-tls"]
 
-unstable-config = [] # deprecated
+hyper0_14-rustls = ["hyper0_14-rustls-lib", "rustls_crate"]
+hyper0_14-native-tls = ["hyper0_14-tls-lib"]
 
 [dependencies]
 async-trait = "0.1.37"
@@ -40,35 +40,46 @@ http-types = "2.3.0"
 log = "0.4.7"
 cfg-if = "1.0.0"
 
-# h1_client
+# h1-client
 async-h1 = { version = "2.0.0", optional = true }
 async-std = { version = "1.6.0", default-features = false, optional = true }
-async-native-tls = { version = "0.3.1", optional = true }
 dashmap = { version = "5.3.4", optional = true }
 deadpool = { version = "0.7.0", optional = true }
 futures = { version = "0.3.8", optional = true }
 
-# h1_client_rustls
-async-tls = { version = "0.11", optional = true }
-rustls_crate = { version = "0.19", optional = true, package = "rustls" }
+# h1-client + h1-rustls
+# async-tls = { version = "0.11", optional = true }
+async-rustls = { version = "0.3", optional = true }
+webpki-roots = { version = "0.22.6", optional = true }
 
-# hyper_client
-hyper = { version = "0.13.6", features = ["tcp"], optional = true }
-hyper-tls = { version = "0.4.3", optional = true }
-futures-util = { version = "0.3.5", features = ["io"], optional = true }
-tokio = { version = "0.2", features = ["time"], optional = true }
+# h1-client + h1-native-tls
+async-native-tls = { version = "0.3.1", optional = true }
 
-# curl_client
+# hyper0_14-client
+hyper0_14 = { package = "hyper", version = "0.14", features = ["client", "http1", "tcp", "stream"], optional = true }
+futures-util = { version = "0.3", features = ["io"], optional = true }
+tokio1 = { package = "tokio", version = "1", features = ["time"], optional = true }
+
+# hyper0_14-client + hyper0_14-rustls
+hyper0_14-rustls-lib = { package = "hyper-rustls", version = "0.23", optional = true }
+
+# hyper0_14-client + hyper0_14-native-tls
+hyper0_14-tls-lib = { package = "hyper-tls", version = "0.5", optional = true }
+
+# h1-rustls or hyper0_14-rustls
+rustls_crate = { package = "rustls", version = "0.20", optional = true }
+
+# isahc0_9-client
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 isahc = { version = "0.9", optional = true, default-features = false, features = ["http2"]  }
 
-# wasm_client
+# wasm-client
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = { version = "0.3.25", optional = true }
 wasm-bindgen = { version = "0.2.48", optional = true }
 wasm-bindgen-futures = { version = "0.4.5", optional = true }
 futures = { version = "0.3.1", optional = true }
-send_wrapper = { version = "0.6.0", features = ["futures"] }
+send_wrapper = { version = "0.6.0", features = ["futures"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
 version = "0.3.25"
@@ -94,7 +105,8 @@ async-std = { version = "1.6.0", features = ["unstable", "attributes"] }
 portpicker = "0.1.0"
 tide = { version = "0.15.0", default-features = false, features = ["h1-server"] }
 tide-rustls = { version = "0.1.4" }
-tokio = { version = "0.2.21", features = ["macros"] }
+tokio1 = { package = "tokio", version = "1", features = ["macros", "rt-multi-thread"] }
+hyper0_14 = { package = "hyper", version = "0.14", features = ["server"] }
 serde = "1.0"
 serde_json = "1.0"
 mockito = "0.23.3"

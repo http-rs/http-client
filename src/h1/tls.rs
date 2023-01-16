@@ -9,9 +9,12 @@ use futures::io::{AsyncRead, AsyncWrite};
 use futures::task::{Context, Poll};
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "rustls")] {
-        use async_tls::client::TlsStream;
-    } else if #[cfg(feature = "native-tls")] {
+    if #[cfg(feature = "h1-rustls")] {
+        use std::convert::TryInto;
+        use std::io;
+
+        use async_rustls::client::TlsStream;
+    } else if #[cfg(feature = "h1-native-tls")] {
         use async_native_tls::TlsStream;
     }
 }
@@ -19,7 +22,7 @@ cfg_if::cfg_if! {
 use crate::{Config, Error};
 
 #[derive(Clone)]
-#[cfg_attr(not(feature = "rustls"), derive(std::fmt::Debug))]
+#[cfg_attr(not(feature = "h1-rustls"), derive(std::fmt::Debug))]
 pub(crate) struct TlsConnection {
     host: String,
     addr: SocketAddr,
@@ -84,7 +87,7 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
         let mut buf = [0; 4];
         let mut cx = Context::from_waker(futures::task::noop_waker_ref());
 
-        conn.get_ref()
+        conn.get_ref().0
             .set_nodelay(self.config.tcp_no_delay)
             .map_err(Error::from)?;
 
@@ -102,28 +105,50 @@ impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
     }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "rustls")] {
-        #[allow(unused_variables)]
-        pub(crate) async fn add_tls(host: &str, stream: TcpStream, config: &Config) -> Result<TlsStream<TcpStream>, std::io::Error> {
-            let connector = if let Some(tls_config) = config.tls_config.as_ref().cloned() {
-                tls_config.into()
-            } else {
-                async_tls::TlsConnector::default()
-            };
+#[cfg(feature = "h1-rustls")]
+#[allow(unused_variables)]
+pub(crate) async fn add_tls(
+    host: &str,
+    stream: TcpStream,
+    config: &Config,
+) -> Result<TlsStream<TcpStream>, io::Error> {
+    let connector: async_rustls::TlsConnector = if let Some(tls_config) =
+        config.tls_config.as_ref().cloned()
+    {
+        tls_config.into()
+    } else {
+        let mut root_certs = rustls_crate::RootCertStore::empty();
+        root_certs.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            rustls_crate::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
+        let config = rustls_crate::ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_certs)
+            .with_no_client_auth();
+        Arc::new(config).into()
+    };
 
-            connector.connect(host, stream).await
-        }
-    } else if #[cfg(feature = "native-tls")] {
-        #[allow(unused_variables)]
-        pub(crate) async fn add_tls(
-            host: &str,
-            stream: TcpStream,
-            config: &Config,
-        ) -> Result<TlsStream<TcpStream>, async_native_tls::Error> {
-            let connector = config.tls_config.as_ref().cloned().unwrap_or_default();
+    connector
+        .connect(
+            host.try_into()
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?,
+            stream,
+        )
+        .await
+}
 
-            connector.connect(host, stream).await
-        }
-    }
+#[cfg(all(feature = "h1-native-tls", not(feature = "h1-rustls")))]
+#[allow(unused_variables)]
+pub(crate) async fn add_tls(
+    host: &str,
+    stream: TcpStream,
+    config: &Config,
+) -> Result<TlsStream<TcpStream>, async_native_tls::Error> {
+    let connector = config.tls_config.as_ref().cloned().unwrap_or_default();
+
+    connector.connect(host, stream).await
 }

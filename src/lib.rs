@@ -6,36 +6,35 @@
 
 #![forbid(future_incompatible, rust_2018_idioms)]
 #![deny(missing_debug_implementations, nonstandard_style)]
-#![warn(missing_docs, missing_doc_code_examples, unreachable_pub)]
+#![warn(missing_docs, unreachable_pub)]
 #![cfg_attr(feature = "docs", feature(doc_cfg))]
 // Forbid `unsafe` for the native & curl features, but allow it (for now) under the WASM backend
 #![cfg_attr(
-    not(all(feature = "wasm_client", target_arch = "wasm32")),
+    not(all(feature = "wasm-client", target_arch = "wasm32")),
     forbid(unsafe_code)
 )]
 
 mod config;
 pub use config::Config;
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "curl_client")))]
-#[cfg(all(feature = "curl_client", not(target_arch = "wasm32")))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "isahc0_9-client")))]
+#[cfg(all(feature = "isahc0_9-client", not(target_arch = "wasm32")))]
 pub mod isahc;
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "wasm_client")))]
-#[cfg(all(feature = "wasm_client", target_arch = "wasm32"))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "wasm-client")))]
+#[cfg(all(feature = "wasm-client", target_arch = "wasm32"))]
 pub mod wasm;
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "native_client")))]
-#[cfg(any(feature = "curl_client", feature = "wasm_client"))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "native-client")))]
+#[cfg(any(feature = "isahc0_9-client", feature = "wasm-client"))]
 pub mod native;
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "h1_client")))]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "default")))]
-#[cfg(any(feature = "h1_client", feature = "h1_client_rustls"))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "h1-client")))]
+#[cfg(feature = "h1-client")]
 pub mod h1;
 
-#[cfg_attr(feature = "docs", doc(cfg(feature = "hyper_client")))]
-#[cfg(feature = "hyper_client")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "hyper0_14-client")))]
+#[cfg(feature = "hyper0_14-client")]
 pub mod hyper;
 
 /// An HTTP Request type with a streaming body.

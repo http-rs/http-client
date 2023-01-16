@@ -1,26 +1,35 @@
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(any(
+        all(feature = "h1-client", feature = "h1-rustls"),
+        all(feature = "hyper0_14-client", feature = "hyper0_14-rustls"),
+        feature = "isahc0_9-client",
+        feature = "wasm-client"
+    ))] {
+
 use mockito::mock;
 
 use http_client::HttpClient;
 use http_types::{Body, Request, Response, Url};
 
-use cfg_if::cfg_if;
-
 cfg_if! {
-    if #[cfg(not(feature = "hyper_client"))] {
-        use async_std::test as atest;
-    } else {
+    if #[cfg(feature = "hyper0_14-client")] {
+        use tokio1 as tokio;
         use tokio::test as atest;
+    } else {
+        use async_std::test as atest;
     }
 }
 
 cfg_if! {
-    if #[cfg(feature = "curl_client")] {
+    if #[cfg(feature = "isahc0_9-client")] {
         use http_client::isahc::IsahcClient as DefaultClient;
-    } else if #[cfg(feature = "wasm_client")] {
+    } else if #[cfg(feature = "wasm-client")] {
         use http_client::wasm::WasmClient as DefaultClient;
-    } else if #[cfg(any(feature = "h1_client", feature = "h1_client_rustls"))] {
+    } else if #[cfg(feature = "h1-client")] {
         use http_client::h1::H1Client as DefaultClient;
-    } else if #[cfg(feature = "hyper_client")] {
+    } else if #[cfg(feature = "hyper0_14-client")] {
         use http_client::hyper::HyperClient as DefaultClient;
     }
 }
@@ -164,4 +173,7 @@ async fn fallback_to_ipv4() {
     let url = &format!("http://localhost:{}", mock_port);
     let req = Request::new(http_types::Method::Get, Url::parse(url).unwrap());
     client.send(req.clone()).await.unwrap();
+}
+
+    }
 }
