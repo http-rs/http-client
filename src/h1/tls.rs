@@ -33,10 +33,10 @@ impl TlsConnection {
 }
 
 pub(crate) struct TlsConnWrapper {
-    conn: Object<TlsStream<TcpStream>, Error>,
+    conn: Object<TlsConnection>,
 }
 impl TlsConnWrapper {
-    pub(crate) fn new(conn: Object<TlsStream<TcpStream>, Error>) -> Self {
+    pub(crate) fn new(conn: Object<TlsConnection>) -> Self {
         Self { conn }
     }
 }
@@ -70,7 +70,10 @@ impl AsyncWrite for TlsConnWrapper {
 }
 
 #[async_trait]
-impl Manager<TlsStream<TcpStream>, Error> for TlsConnection {
+impl Manager for TlsConnection {
+    type Type = TlsStream<TcpStream>;
+    type Error = Error;
+
     async fn create(&self) -> Result<TlsStream<TcpStream>, Error> {
         let raw_stream = async_std::net::TcpStream::connect(self.addr).await?;
 
