@@ -24,10 +24,10 @@ impl TcpConnection {
 }
 
 pub(crate) struct TcpConnWrapper {
-    conn: Object<TcpStream, std::io::Error>,
+    conn: Object<TcpConnection>,
 }
 impl TcpConnWrapper {
-    pub(crate) fn new(conn: Object<TcpStream, std::io::Error>) -> Self {
+    pub(crate) fn new(conn: Object<TcpConnection>) -> Self {
         Self { conn }
     }
 }
@@ -61,7 +61,10 @@ impl AsyncWrite for TcpConnWrapper {
 }
 
 #[async_trait]
-impl Manager<TcpStream, std::io::Error> for TcpConnection {
+impl Manager for TcpConnection {
+    type Type = TcpStream;
+    type Error = std::io::Error;
+
     async fn create(&self) -> Result<TcpStream, std::io::Error> {
         let tcp_stream = TcpStream::connect(self.addr).await?;
 
