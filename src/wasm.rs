@@ -8,7 +8,7 @@ use send_wrapper::SendWrapper;
 
 use crate::Config;
 
-use super::{http_types::Headers, Body, Error, HttpClient, Request, Response};
+use super::{http_types::headers::Headers, Body, Error, HttpClient, Request, Response};
 
 /// WebAssembly HTTP Client.
 #[derive(Debug)]

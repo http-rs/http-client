@@ -35,27 +35,27 @@ rustls = ["async-tls", "rustls_crate"]
 unstable-config = [] # deprecated
 
 [dependencies]
-async-trait = "0.1.37"
-http-types = "2.3.0"
-log = "0.4.7"
+async-trait = "0.1.68"
+http-types = { git = "https://github.com/http-rs/http-types", rev = "ac5d645ce5294554b86ebd49233d3ec01665d1d7" }
+log = "0.4.17"
 cfg-if = "1.0.0"
 
 # h1_client
-async-h1 = { version = "2.0.0", optional = true }
-async-std = { version = "1.6.0", default-features = false, optional = true }
-async-native-tls = { version = "0.3.1", optional = true }
-dashmap = { version = "5.3.4", optional = true }
+async-h1 = { version = "2.3.3", optional = true }
+async-std = { version = "1.12.0", default-features = false, optional = true }
+async-native-tls = { version = "0.3.3", optional = true }
+dashmap = { version = "5.4.0", optional = true }
 deadpool = { version = "0.7.0", optional = true }
-futures = { version = "0.3.8", optional = true }
+futures = { version = "0.3.28", optional = true }
 
 # h1_client_rustls
 async-tls = { version = "0.11", optional = true }
 rustls_crate = { version = "0.19", optional = true, package = "rustls" }
 
 # hyper_client
-hyper = { version = "0.13.6", features = ["tcp"], optional = true }
+hyper = { version = "0.13.10", features = ["tcp"], optional = true }
 hyper-tls = { version = "0.4.3", optional = true }
-futures-util = { version = "0.3.5", features = ["io"], optional = true }
+futures-util = { version = "0.3.28", features = ["io"], optional = true }
 tokio = { version = "0.2", features = ["time"], optional = true }
 
 # curl_client
@@ -64,14 +64,14 @@ isahc = { version = "0.9", optional = true, default-features = false, features =
 
 # wasm_client
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-js-sys = { version = "0.3.25", optional = true }
-wasm-bindgen = { version = "0.2.48", optional = true }
-wasm-bindgen-futures = { version = "0.4.5", optional = true }
-futures = { version = "0.3.1", optional = true }
+js-sys = { version = "0.3.63", optional = true }
+wasm-bindgen = { version = "0.2.86", optional = true }
+wasm-bindgen-futures = { version = "0.4.36", optional = true }
+futures = { version = "0.3.28", optional = true }
 send_wrapper = { version = "0.6.0", features = ["futures"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
-version = "0.3.25"
+version = "0.3.63"
 optional = true
 features = [
     "AbortSignal",
@@ -90,11 +90,11 @@ features = [
 ]
 
 [dev-dependencies]
-async-std = { version = "1.6.0", features = ["unstable", "attributes"] }
-portpicker = "0.1.0"
-tide = { version = "0.15.0", default-features = false, features = ["h1-server"] }
-tide-rustls = { version = "0.1.4" }
-tokio = { version = "0.2.21", features = ["macros"] }
+async-std = { version = "1.12.0", features = ["unstable", "attributes"] }
+portpicker = "0.1.1"
+tide = { version = "0.15.1", default-features = false, features = ["h1-server"] }
+tide-rustls = { version = "0.1.6" }
+tokio = { version = "0.2.25", features = ["macros"] }
 serde = "1.0"
 serde_json = "1.0"
 mockito = "0.23.3"
