@@ -104,7 +104,7 @@ impl H1Client {
         note = "This function is misnamed. Prefer `Config::max_connections_per_host` instead."
     )]
     pub fn with_max_connections(max: usize) -> Self {
-        #[cfg(features = "h1_client")]
+        #[cfg(feature = "h1_client")]
         assert!(max > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
 
         let config = Config {
@@ -269,7 +269,7 @@ impl HttpClient for H1Client {
     ///
     /// Config options may not impact existing connections.
     fn set_config(&mut self, config: Config) -> http_types::Result<()> {
-        #[cfg(features = "h1_client")]
+        #[cfg(feature = "h1_client")]
         assert!(config.max_connections_per_host > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
 
         self.config = Arc::new(config);
@@ -287,7 +287,7 @@ impl TryFrom<Config> for H1Client {
     type Error = Infallible;
 
     fn try_from(config: Config) -> Result<Self, Self::Error> {
-        #[cfg(features = "h1_client")]
+        #[cfg(feature = "h1_client")]
         assert!(config.max_connections_per_host > 0, "max_connections_per_host with h1_client must be greater than zero or it will deadlock!");
 
         Ok(Self {
